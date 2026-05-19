@@ -181,17 +181,6 @@ def resolver_hipotesis_1() -> None:
     plt.axvline(q_inc_alta, color="#555555", linestyle="--", alpha=0.55)
     plt.axhline(q_let_baja, color="#555555", linestyle="--", alpha=0.55)
 
-    puntos_a_etiquetar = pd.concat([alta_inc_baja_let, baja_inc_alta_let])
-    for _, row in puntos_a_etiquetar.iterrows():
-        plt.annotate(
-            row["Province_State"],
-            (row["Incident_Rate"], row["Case_Fatality_Ratio"]),
-            xytext=(6, 5),
-            textcoords="offset points",
-            fontsize=8,
-            color="#222222",
-        )
-
     plt.title(f"H1: Alta incidencia no implica alta letalidad (r = {correlacion:.2f})")
     plt.xlabel("Tasa de incidencia acumulada (casos por 100,000 habitantes aprox.)")
     plt.ylabel("Letalidad aparente: muertes / casos confirmados (%)")
