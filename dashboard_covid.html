@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard EDA COVID-19</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #64748b;
+      --line: #dbe3ef;
+      --accent: #2563eb;
+      --accent-2: #0f766e;
+      --danger: #dc2626;
+      --shadow: 0 18px 45px rgba(15, 23, 42, 0.10);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+
+    header {
+      background: linear-gradient(120deg, #0f172a 0%, #1e3a8a 55%, #0f766e 100%);
+      color: white;
+      padding: 44px 28px 52px;
+    }
+
+    .hero {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #bfdbfe;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(32px, 5vw, 58px);
+      line-height: 1.02;
+      letter-spacing: 0;
+      max-width: 920px;
+    }
+
+    .hero p {
+      max-width: 860px;
+      margin: 18px 0 0;
+      color: #dbeafe;
+      font-size: 18px;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: -28px auto 48px;
+      padding: 0 22px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid rgba(219, 227, 239, 0.8);
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 24px;
+      color: var(--ink);
+      margin-bottom: 3px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      margin: 18px 0;
+      overflow: hidden;
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: start;
+      padding: 22px 24px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfdff;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 23px;
+      letter-spacing: 0;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 7px 10px;
+      background: #e0ecff;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .body {
+      padding: 22px 24px 24px;
+    }
+
+    .copy-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .note {
+      border-left: 4px solid var(--accent);
+      background: #f8fbff;
+      padding: 12px 14px;
+      border-radius: 8px;
+      min-height: 100%;
+    }
+
+    .note h3 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      color: #0f172a;
+    }
+
+    .note p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    figure {
+      margin: 0;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: white;
+    }
+
+    iframe {
+      display: block;
+      width: 100%;
+      height: 680px;
+      border: 0;
+      background: white;
+    }
+
+    figcaption {
+      padding: 12px 14px;
+      color: var(--muted);
+      font-size: 13px;
+      border-top: 1px solid var(--line);
+      background: white;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .final {
+      background: #0f172a;
+      color: white;
+      border-radius: 14px;
+      padding: 26px;
+      margin-top: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .final h2 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
+
+    .final p {
+      margin: 0;
+      color: #dbeafe;
+    }
+
+    a {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 900px) {
+      .summary-grid,
+      .copy-grid,
+      .two-col,
+      .section-head {
+        grid-template-columns: 1fr;
+      }
+
+      iframe {
+        height: 560px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hero">
+      <p class="eyebrow">Analisis Exploratorio de Datos</p>
+      <h1>Dashboard COVID-19 por estados de EE. UU.</h1>
+      <p>
+        Este panel resume los hallazgos principales del EDA: incidencia, letalidad aparente,
+        testing, perfiles epidemiologicos y concentracion temporal de brotes.
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <section class="summary-grid" aria-label="Resumen del dataset">
+      <div class="metric">
+        <strong>61,542</strong>
+        <span>registros limpios</span>
+      </div>
+      <div class="metric">
+        <strong>58</strong>
+        <span>estados y territorios</span>
+      </div>
+      <div class="metric">
+        <strong>2020-2023</strong>
+        <span>periodo temporal</span>
+      </div>
+      <div class="metric">
+        <strong>4</strong>
+        <span>hipotesis analizadas</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">1. Incidencia acumulada vs letalidad aparente</h2>
+        </div>
+        <span class="tag">Relacion bivariada</span>
+      </div>
+      <div class="body">
+        <div class="copy-grid">
+          <div class="note">
+            <h3>Descripcion</h3>
+            <p>Cada punto representa un estado o territorio. El eje X muestra la incidencia acumulada y el eje Y la letalidad aparente.</p>
+          </div>
+          <div class="note">
+            <h3>Interpretacion</h3>
+            <p>La relacion es debil: tener mas casos proporcionales no implica necesariamente mayor letalidad.</p>
+          </div>
+          <div class="note">
+            <h3>Hallazgo</h3>
+            <p>La correlacion aproximada es 0.166, por lo que la hipotesis se apoya parcialmente.</p>
+          </div>
+        </div>
+        <figure>
+          <img src="outputs/hipotesis_1_incidencia_letalidad.png" alt="Scatterplot de incidencia acumulada contra letalidad aparente" />
+          <figcaption>Este grafico se usa para observar la relacion general. Para identificar estados especificos se usa el mapa interactivo.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">2. Mapa de letalidad aparente por estado</h2>
+        </div>
+        <span class="tag">Visualizacion geografica</span>
+      </div>
+      <div class="body">
+        <div class="copy-grid">
+          <div class="note">
+            <h3>Descripcion</h3>
+            <p>Los estados se colorean segun su letalidad aparente. Verde indica menor letalidad y rojo mayor letalidad.</p>
+          </div>
+          <div class="note">
+            <h3>Interpretacion</h3>
+            <p>Permite ubicar geograficamente estados con mayor o menor proporcion de muertes respecto a casos confirmados.</p>
+          </div>
+          <div class="note">
+            <h3>Interaccion</h3>
+            <p>Al pasar el cursor sobre un estado se observan incidencia, letalidad, casos y muertes.</p>
+          </div>
+        </div>
+        <figure>
+          <iframe src="outputs/mapa_interactivo_hipotesis_1.html" title="Mapa interactivo de letalidad aparente"></iframe>
+          <figcaption>Mapa interactivo generado con Folium. Si no carga dentro del panel, abrir directamente <a href="outputs/mapa_interactivo_hipotesis_1.html">este archivo</a>.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">3. Clusters epidemiologicos por estado</h2>
+        </div>
+        <span class="tag">Analisis multivariado</span>
+      </div>
+      <div class="body">
+        <div class="copy-grid">
+          <div class="note">
+            <h3>Descripcion</h3>
+            <p>K-Means agrupa estados usando incidencia acumulada, testing rate y letalidad aparente.</p>
+          </div>
+          <div class="note">
+            <h3>Interpretacion</h3>
+            <p>Los colores representan perfiles epidemiologicos, no regiones geograficas.</p>
+          </div>
+          <div class="note">
+            <h3>Valor del analisis</h3>
+            <p>Estados alejados pueden pertenecer al mismo perfil si sus indicadores epidemiologicos son similares.</p>
+          </div>
+        </div>
+        <div class="two-col">
+          <figure>
+            <img src="outputs/hipotesis_2_clustering_perfiles.png" alt="Scatterplot de clusters epidemiologicos" />
+            <figcaption>El scatterplot muestra testing rate y letalidad aparente; el tamanio refleja incidencia acumulada.</figcaption>
+          </figure>
+          <figure>
+            <iframe src="outputs/mapa_interactivo_hipotesis_2_clusters.html" title="Mapa interactivo de clusters epidemiologicos"></iframe>
+            <figcaption>Mapa interactivo por cluster. Abrir directamente <a href="outputs/mapa_interactivo_hipotesis_2_clusters.html">aqui</a> si se desea pantalla completa.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">4. Casos anuales vs letalidad anual aparente</h2>
+        </div>
+        <span class="tag">Temporalidad</span>
+      </div>
+      <div class="body">
+        <div class="copy-grid">
+          <div class="note">
+            <h3>Descripcion</h3>
+            <p>Las barras muestran casos nuevos anuales y la linea azul muestra letalidad anual aparente.</p>
+          </div>
+          <div class="note">
+            <h3>Interpretacion</h3>
+            <p>2022 tuvo mas casos nuevos, pero menor letalidad proporcional que 2020 y 2021.</p>
+          </div>
+          <div class="note">
+            <h3>Hallazgo</h3>
+            <p>La pandemia fue mas masiva en contagios durante 2022, pero menos letal en proporcion a casos reportados.</p>
+          </div>
+        </div>
+        <figure>
+          <img src="outputs/hipotesis_3_casos_letalidad_anual.png" alt="Casos anuales y letalidad anual aparente" />
+          <figcaption>La letalidad anual aparente se calcula como muertes nuevas anuales divididas entre casos nuevos anuales.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">5. Concentracion de casos en la peor semana</h2>
+        </div>
+        <span class="tag">Brotes explosivos</span>
+      </div>
+      <div class="body">
+        <div class="copy-grid">
+          <div class="note">
+            <h3>Descripcion</h3>
+            <p>Mide que porcentaje de los casos historicos de cada lugar ocurrio en su peor semana.</p>
+          </div>
+          <div class="note">
+            <h3>Interpretacion</h3>
+            <p>Algunos lugares tuvieron brotes muy concentrados, no una evolucion gradual.</p>
+          </div>
+          <div class="note">
+            <h3>Valor del analisis</h3>
+            <p>Permite distinguir territorios con transmision distribuida de lugares con olas abruptas.</p>
+          </div>
+        </div>
+        <figure>
+          <img src="outputs/hipotesis_4_concentracion_ola.png" alt="Concentracion de casos en la peor semana" />
+          <figcaption>Una mayor concentracion indica que una sola semana represento una parte importante del total historico de casos.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="final">
+      <h2>Conclusion del dashboard</h2>
+      <p>
+        En conjunto, las visualizaciones muestran que el impacto del COVID-19 no se entiende solo con casos totales.
+        Las tasas, la letalidad aparente, el testing, los perfiles multivariados y la distribucion temporal permiten
+        detectar patrones mas ricos entre estados y territorios.
+      </p>
+    </section>
+  </main>
+</body>
+</html>
