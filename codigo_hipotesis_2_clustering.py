@@ -6,6 +6,7 @@ import folium
 from folium import plugins
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib.lines import Line2D
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
@@ -50,11 +51,18 @@ def preparar_clusters(df: pd.DataFrame, n_clusters: int = 4) -> pd.DataFrame:
 
 
 def crear_scatter_clusters(datos: pd.DataFrame) -> None:
-    plt.figure(figsize=(12, 7))
+    fig, ax = plt.subplots(figsize=(13, 7.5))
+
+    min_inc = datos["Incident_Rate"].min()
+    max_inc = datos["Incident_Rate"].max()
+
+    def escalar_tamanio(serie: pd.Series) -> pd.Series:
+        normalizado = (serie - min_inc) / (max_inc - min_inc)
+        return 55 + normalizado * 520
 
     for cluster, grupo in datos.groupby("Cluster"):
-        tamanio = 45 + (grupo["Incident_Rate"] / datos["Incident_Rate"].max()) * 240
-        plt.scatter(
+        tamanio = escalar_tamanio(grupo["Incident_Rate"])
+        ax.scatter(
             grupo["Testing_Rate"],
             grupo["Case_Fatality_Ratio"],
             s=tamanio,
@@ -65,23 +73,57 @@ def crear_scatter_clusters(datos: pd.DataFrame) -> None:
             label=f"Cluster {cluster + 1}: {CLUSTER_NAMES[cluster]}",
         )
 
-    for _, row in datos.nlargest(5, "Case_Fatality_Ratio").iterrows():
-        plt.annotate(
-            row["Province_State"],
-            (row["Testing_Rate"], row["Case_Fatality_Ratio"]),
-            xytext=(6, 5),
-            textcoords="offset points",
-            fontsize=8,
-        )
+    handles_cluster, labels_cluster = ax.get_legend_handles_labels()
+    legend_cluster = ax.legend(
+        handles_cluster,
+        labels_cluster,
+        title="Perfil epidemiologico",
+        loc="upper right",
+        frameon=True,
+    )
+    ax.add_artist(legend_cluster)
 
-    plt.title("H2: Perfiles epidemiologicos por clustering")
-    plt.xlabel("Testing rate")
-    plt.ylabel("Letalidad aparente (%)")
-    plt.grid(alpha=0.25)
-    plt.legend(title="Perfil")
+    valores_referencia = [
+        datos["Incident_Rate"].quantile(0.25),
+        datos["Incident_Rate"].quantile(0.50),
+        datos["Incident_Rate"].quantile(0.75),
+    ]
+    size_handles = [
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            linestyle="",
+            markerfacecolor="#94a3b8",
+            markeredgecolor="white",
+            markersize=(escalar_tamanio(pd.Series([valor])).iloc[0] ** 0.5),
+            label=f"{valor:,.0f}",
+        )
+        for valor in valores_referencia
+    ]
+    ax.legend(
+        handles=size_handles,
+        title="Incidencia acumulada",
+        loc="lower right",
+        frameon=True,
+    )
+
+    ax.set_title("H2: Perfiles epidemiologicos por clustering")
+    ax.set_xlabel("Testing rate")
+    ax.set_ylabel("Letalidad aparente (%)")
+    ax.text(
+        0.01,
+        0.02,
+        "Nota: puntos mas grandes = mayor incidencia acumulada",
+        transform=ax.transAxes,
+        fontsize=10,
+        color="#475569",
+        bbox=dict(boxstyle="round,pad=0.35", facecolor="white", edgecolor="#cbd5e1", alpha=0.9),
+    )
+    ax.grid(alpha=0.25)
     plt.tight_layout()
     plt.savefig(OUTPUT_DIR / "hipotesis_2_clustering_perfiles.png", dpi=160)
-    plt.close()
+    plt.close(fig)
 
 
 def crear_mapa_clusters(datos: pd.DataFrame) -> None:
