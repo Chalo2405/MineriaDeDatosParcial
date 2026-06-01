@@ -9,7 +9,6 @@ import pandas as pd
 warnings.filterwarnings("ignore", message="urllib3 v2 only supports OpenSSL")
 
 DATA_PATH = Path("dataset_covid_unido.csv")
-OUTPUT_DIR = Path("outputs")
 US_STATES_GEOJSON = Path("us_states.geojson")
 US_STATES_GEOJSON_URL = (
     "https://raw.githubusercontent.com/python-visualization/"
@@ -135,7 +134,6 @@ STATE_ABBR = {
 
 
 def cargar_y_limpiar_datos() -> pd.DataFrame:
-    OUTPUT_DIR.mkdir(exist_ok=True)
     df = pd.read_csv(DATA_PATH)
     df = df.drop_duplicates().copy()
 
@@ -156,7 +154,6 @@ def cargar_y_limpiar_datos() -> pd.DataFrame:
         df.groupby("Province_State")["Deaths"].diff().fillna(0).clip(lower=0)
     )
 
-    df.to_csv(OUTPUT_DIR / "dataset_covid_limpio.csv", index=False)
     return df
 
 
@@ -174,7 +171,6 @@ def ultimo_registro_con_columnas(df: pd.DataFrame, columnas: list[str]) -> pd.Da
 
 
 def cargar_geojson_estados() -> dict:
-    OUTPUT_DIR.mkdir(exist_ok=True)
     if not US_STATES_GEOJSON.exists():
         urllib.request.urlretrieve(US_STATES_GEOJSON_URL, US_STATES_GEOJSON)
 
