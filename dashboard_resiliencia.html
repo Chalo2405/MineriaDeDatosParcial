@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard de Resiliencia Sanitaria</title>
+  <style>
+    :root {
+      --bg: #eef3f8;
+      --ink: #101827;
+      --muted: #64748b;
+      --panel: #ffffff;
+      --line: #d8e2ee;
+      --blue: #2563eb;
+      --green: #0f766e;
+      --red: #dc2626;
+      --amber: #f59e0b;
+      --shadow: 0 18px 48px rgba(15, 23, 42, 0.11);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.55;
+    }
+
+    header {
+      color: white;
+      padding: 46px 28px 72px;
+      background:
+        linear-gradient(rgba(10, 18, 33, 0.78), rgba(10, 18, 33, 0.78)),
+        radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.9), transparent 30%),
+        linear-gradient(135deg, #0f172a, #1e3a8a 58%, #0f766e);
+    }
+
+    .hero {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: #bfdbfe;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    h1 {
+      max-width: 980px;
+      margin: 0;
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: 1.03;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 920px;
+      margin: 18px 0 0;
+      color: #dbeafe;
+      font-size: 18px;
+    }
+
+    main {
+      max-width: 1200px;
+      margin: -42px auto 54px;
+      padding: 0 22px;
+    }
+
+    .problem {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 18px;
+    }
+
+    .problem h2 {
+      margin: 0 0 8px;
+      font-size: 23px;
+    }
+
+    .problem p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 24px;
+      margin-bottom: 3px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      margin: 18px 0;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .section-head {
+      padding: 22px 24px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfdff;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 7px 11px;
+      background: #e0ecff;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .body {
+      padding: 22px 24px 24px;
+    }
+
+    .hypothesis {
+      margin-bottom: 18px;
+      border: 1px solid #c7ddff;
+      background: linear-gradient(135deg, #eff6ff 0%, #f0fdfa 100%);
+      border-radius: 13px;
+      padding: 16px 18px;
+    }
+
+    .hypothesis span {
+      display: inline-block;
+      margin-bottom: 6px;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .hypothesis p {
+      margin: 0;
+      font-weight: 680;
+      font-size: 16px;
+    }
+
+    .notes {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .note {
+      border-left: 4px solid var(--blue);
+      background: #f8fbff;
+      border-radius: 9px;
+      padding: 12px 14px;
+    }
+
+    .note h3 {
+      margin: 0 0 6px;
+      font-size: 14px;
+    }
+
+    .note p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    figure {
+      margin: 0;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      overflow: hidden;
+    }
+
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: white;
+    }
+
+    iframe {
+      display: block;
+      width: 100%;
+      height: 720px;
+      border: 0;
+      background: white;
+    }
+
+    figcaption {
+      padding: 12px 14px;
+      background: white;
+      color: var(--muted);
+      font-size: 13px;
+      border-top: 1px solid var(--line);
+    }
+
+    .grid-two {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .cluster-list {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .cluster-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: #ffffff;
+    }
+
+    .cluster-card b {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .swatch {
+      display: inline-block;
+      width: 11px;
+      height: 11px;
+      border-radius: 3px;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .final {
+      background: #0f172a;
+      color: white;
+      border-radius: 16px;
+      padding: 26px;
+      box-shadow: var(--shadow);
+    }
+
+    .final h2 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
+
+    .final p {
+      margin: 0;
+      color: #dbeafe;
+    }
+
+    a {
+      color: var(--blue);
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    @media (max-width: 920px) {
+      .metrics,
+      .notes,
+      .grid-two,
+      .cluster-list,
+      .section-head {
+        grid-template-columns: 1fr;
+      }
+
+      iframe { height: 560px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hero">
+      <p class="eyebrow">Clustering de Perfiles</p>
+      <h1>Perfiles de resiliencia sanitaria ante brotes epidemiologicos explosivos</h1>
+      <p>
+        Clasificacion de estados segun su capacidad de contener la letalidad durante ventanas criticas de contagio,
+        combinando intensidad del brote, testing y letalidad observada.
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <section class="problem">
+      <h2>Problema general</h2>
+      <p>
+        Identificacion de perfiles de resiliencia sanitaria mediante clustering:
+        clasificacion de regiones segun su capacidad de contener la letalidad durante brotes epidemiologicos explosivos.
+      </p>
+    </section>
+
+    <section class="metrics" aria-label="Metricas principales">
+      <div class="metric">
+        <strong>48</strong>
+        <span>estados con datos suficientes para clustering</span>
+      </div>
+      <div class="metric">
+        <strong>4</strong>
+        <span>perfiles de resiliencia sanitaria</span>
+      </div>
+      <div class="metric">
+        <strong>5 sem.</strong>
+        <span>ventana critica tras la peor semana</span>
+      </div>
+      <div class="metric">
+        <strong>K-Means</strong>
+        <span>algoritmo de agrupamiento usado</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>1. Definicion operacional del brote explosivo</h2>
+        <span class="tag">Metodologia</span>
+      </div>
+      <div class="body">
+        <div class="hypothesis">
+          <span>Pregunta central</span>
+          <p>Que estados mantuvieron menor letalidad durante o despues de su peor pico semanal de contagios?</p>
+        </div>
+        <div class="notes">
+          <div class="note">
+            <h3>Explosividad</h3>
+            <p>Se mide con el porcentaje de casos historicos que ocurrieron en la peor semana.</p>
+          </div>
+          <div class="note">
+            <h3>Intensidad del pico</h3>
+            <p>Se mide como casos de la peor semana por cada 100,000 habitantes estimados.</p>
+          </div>
+          <div class="note">
+            <h3>Contencion de letalidad</h3>
+            <p>Se mide con la letalidad acumulada durante la peor semana y las 4 semanas posteriores.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>2. Perfiles de resiliencia sanitaria</h2>
+        <span class="tag">Clustering</span>
+      </div>
+      <div class="body">
+        <div class="hypothesis">
+          <span>Hipotesis principal</span>
+          <p>
+            Es posible agrupar estados en perfiles homogeneos de resiliencia sanitaria combinando explosividad del brote,
+            intensidad del pico, capacidad de testeo y letalidad durante la ventana critica.
+          </p>
+        </div>
+
+        <div class="cluster-list">
+          <div class="cluster-card">
+            <b><span class="swatch" style="background:#f59e0b"></span>Brote explosivo / control intermedio</b>
+            Estados con pico fuerte, pero letalidad de ventana no extrema.
+          </div>
+          <div class="cluster-card">
+            <b><span class="swatch" style="background:#2563eb"></span>Baja explosividad / resiliencia intermedia</b>
+            Estados con peor semana menos dominante y letalidad moderada.
+          </div>
+          <div class="cluster-card">
+            <b><span class="swatch" style="background:#dc2626"></span>Perfil critico / letalidad alta</b>
+            Estados con mayor letalidad durante la ventana critica.
+          </div>
+          <div class="cluster-card">
+            <b><span class="swatch" style="background:#16a34a"></span>Alta capacidad de testeo / letalidad baja</b>
+            Estados con alto testing y menor letalidad durante el brote.
+          </div>
+        </div>
+
+        <div class="grid-two">
+          <figure>
+            <img src="outputs/resiliencia_scatter_clusters.png" alt="Scatterplot de perfiles de resiliencia sanitaria" />
+            <figcaption>
+              Eje X: intensidad del pico semanal. Eje Y: letalidad en ventana critica.
+              El tamanio representa testing rate y el color representa el cluster.
+            </figcaption>
+          </figure>
+          <figure>
+            <img src="outputs/resiliencia_heatmap_perfiles.png" alt="Heatmap de perfiles de resiliencia sanitaria" />
+            <figcaption>
+              El heatmap resume el promedio de cada variable por cluster y ayuda a interpretar que caracteriza a cada perfil.
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>3. Mapa interactivo de perfiles</h2>
+        <span class="tag">Visualizacion geografica</span>
+      </div>
+      <div class="body">
+        <div class="hypothesis">
+          <span>Lectura geografica</span>
+          <p>
+            Si los perfiles no coinciden completamente con regiones geograficas, entonces la resiliencia sanitaria no depende solo de ubicacion,
+            sino de la combinacion entre brote, testeo y letalidad.
+          </p>
+        </div>
+        <figure>
+          <iframe src="outputs/mapa_resiliencia_clusters.html" title="Mapa de clusters de resiliencia sanitaria"></iframe>
+          <figcaption>
+            Mapa interactivo generado con Folium. Al pasar el cursor sobre cada estado se observa el perfil, la intensidad del pico,
+            la letalidad de ventana critica y el testing rate. Abrir directamente
+            <a href="outputs/mapa_resiliencia_clusters.html">este archivo</a> para verlo en pantalla completa.
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="final">
+      <h2>Conclusion central</h2>
+      <p>
+        El clustering permite transformar un brote epidemiologico en perfiles comparables de resiliencia sanitaria.
+        El hallazgo mas importante es distinguir estados con brotes intensos pero baja letalidad de aquellos con menor explosividad,
+        pero mayor letalidad en la ventana critica. Esto aporta una lectura mas rica que observar solo casos totales o letalidad global.
+      </p>
+    </section>
+  </main>
+</body>
+</html>

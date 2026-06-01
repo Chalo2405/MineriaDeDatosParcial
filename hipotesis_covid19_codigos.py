@@ -1,4 +1,4 @@
-from ejecutar_todas_hipotesis import main
+from analisis_resiliencia_sanitaria import main
 
 
 if __name__ == "__main__":
