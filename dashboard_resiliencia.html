@@ -334,73 +334,6 @@
       height: 285px;
     }
 
-    .insights-panel {
-      padding: 12px;
-      display: grid;
-      gap: 10px;
-    }
-
-    .insight {
-      border-left: 4px solid #2563eb;
-      border-radius: 8px;
-      background: #f8fafc;
-      padding: 9px 10px;
-      color: #334155;
-      font-size: 12px;
-    }
-
-    .insight b {
-      color: #0f172a;
-    }
-
-    .comparison-bars {
-      padding: 12px;
-      display: grid;
-      gap: 10px;
-      font-size: 11px;
-    }
-
-    .comparison-row {
-      display: grid;
-      grid-template-columns: 122px 1fr;
-      gap: 9px;
-      align-items: center;
-    }
-
-    .comparison-label {
-      color: #334155;
-      font-weight: 800;
-      line-height: 1.15;
-    }
-
-    .bar-track {
-      position: relative;
-      height: 10px;
-      border-radius: 999px;
-      background: #e2e8f0;
-      overflow: hidden;
-    }
-
-    .bar-fill {
-      height: 100%;
-      border-radius: 999px;
-      background: var(--bar-color, #2563eb);
-    }
-
-    .bar-marker {
-      position: absolute;
-      top: -3px;
-      width: 2px;
-      height: 16px;
-      background: #0f172a;
-      opacity: 0.65;
-    }
-
-    .comparison-values {
-      grid-column: 2;
-      color: var(--muted);
-    }
-
     .leaflet-interactive {
       transition: fill-opacity 140ms ease, stroke-width 140ms ease;
     }
@@ -469,15 +402,6 @@
           <div id="timelineChart" class="chart"></div>
         </section>
 
-        <section class="section-card">
-          <h3>Lectura automatica del estado</h3>
-          <div class="insights-panel" id="insightsPanel"></div>
-        </section>
-
-        <section class="section-card">
-          <h3>Variables clave: estado vs promedio del cluster</h3>
-          <div class="comparison-bars" id="comparisonBars"></div>
-        </section>
       </div>
     </aside>
   </main>
@@ -610,74 +534,6 @@
       `;
       document.getElementById("stressNote").textContent =
         `${state.state} tuvo su semana explosiva el ${state.peakWeekDate}: ${formatValue(state.peakWeekCases)} casos en una semana, equivalentes al ${formatValue(state.metrics.peak_case_share_pct, "%", 1)} de sus casos historicos.`;
-    }
-
-    function relationText(value, average, higherLabel, lowerLabel) {
-      if (!average) return "sin comparacion suficiente";
-      const diff = ((value - average) / average) * 100;
-      if (diff > 8) return `${higherLabel} que el promedio de su cluster`;
-      if (diff < -8) return `${lowerLabel} que el promedio de su cluster`;
-      return "muy cercano al promedio de su cluster";
-    }
-
-    function renderInsights(state) {
-      const cluster = appData.clusters[state.profile];
-      const incidenceText = relationText(
-        state.metrics.Incident_Rate,
-        cluster.Incident_Rate,
-        "mayor",
-        "menor"
-      );
-      const testingText = relationText(
-        state.metrics.Testing_Rate,
-        cluster.Testing_Rate,
-        "mayor",
-        "menor"
-      );
-      const fatalityText = relationText(
-        state.metrics.Case_Fatality_Ratio,
-        cluster.Case_Fatality_Ratio,
-        "mayor",
-        "menor"
-      );
-      const stressText = relationText(
-        state.metrics.window_fatality_ratio,
-        cluster.window_fatality_ratio,
-        "mas alta",
-        "mas baja"
-      );
-      document.getElementById("insightsPanel").innerHTML = `
-        <div class="insight"><b>Perfil asignado:</b> ${state.profileName}. El mapa lo pinta con este color porque K-Means lo agrupo junto a estados de comportamiento parecido.</div>
-        <div class="insight"><b>Lectura base:</b> su incidencia acumulada es ${incidenceText}; su testing rate es ${testingText}; y su letalidad acumulada es ${fatalityText}.</div>
-        <div class="insight"><b>Durante la semana explosiva:</b> su letalidad de ventana fue ${stressText}. Esto ayuda a evaluar si resistio mejor o peor que su propio grupo.</div>
-      `;
-    }
-
-    function renderComparisonBars(state) {
-      const cluster = appData.clusters[state.profile];
-      const features = [
-        "Incident_Rate",
-        "Testing_Rate",
-        "Case_Fatality_Ratio",
-        "peak_case_share_pct",
-        "window_fatality_ratio"
-      ];
-      document.getElementById("comparisonBars").innerHTML = features.map(feature => {
-        const stateNorm = Math.max(0, Math.min(100, normalized(feature, state.metrics[feature])));
-        const clusterNorm = Math.max(0, Math.min(100, normalized(feature, cluster[feature])));
-        const digits = feature.includes("Ratio") || feature.includes("pct") ? 1 : 0;
-        const suffix = feature.includes("Ratio") || feature.includes("pct") ? "%" : "";
-        return `
-          <div class="comparison-row">
-            <div class="comparison-label">${appData.featureLabels[feature]}</div>
-            <div class="bar-track">
-              <div class="bar-fill" style="width:${stateNorm}%; --bar-color:${state.color}"></div>
-              <div class="bar-marker" style="left:${clusterNorm}%"></div>
-            </div>
-            <div class="comparison-values">Estado: ${formatValue(state.metrics[feature], suffix, digits)} · Cluster: ${formatValue(cluster[feature], suffix, digits)}</div>
-          </div>
-        `;
-      }).join("");
     }
 
     function renderRadar(state) {
@@ -818,8 +674,6 @@
       pill.style.background = `${state.color}44`;
       renderStateButtons(document.getElementById("stateSearch").value);
       renderMetricStrip(state);
-      renderInsights(state);
-      renderComparisonBars(state);
       renderRadar(state);
       renderTimeline(state);
       highlightMapState(name);
