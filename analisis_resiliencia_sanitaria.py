@@ -509,39 +509,16 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
         .groupby(["Province_State", pd.Grouper(key="Fecha", freq="W")])
         .agg(
             cases_week=("Casos_Nuevos", "sum"),
-            deaths_week=("Muertes_Nuevas", "sum"),
         )
         .reset_index()
     )
     series_semanales["Fecha"] = series_semanales["Fecha"].dt.strftime("%Y-%m-%d")
 
-    columnas_tabla = [
-        "Fecha",
-        "Confirmed",
-        "Deaths",
-        "Incident_Rate",
-        "Testing_Rate",
-        "Case_Fatality_Ratio",
-        "Casos_Nuevos",
-        "Muertes_Nuevas",
-    ]
-
-    filas_estado = {}
     timeline_estado = {}
     for estado in sorted(estados_validos):
-        filas = (
-            df[df["Province_State"] == estado]
-            .sort_values("Fecha")
-            .tail(14)[columnas_tabla]
-            .copy()
-        )
-        filas["Fecha"] = filas["Fecha"].dt.strftime("%Y-%m-%d")
-        filas_estado[estado] = filas.sort_values("Fecha", ascending=False).round(3).to_dict(
-            orient="records"
-        )
         timeline_estado[estado] = (
             series_semanales[series_semanales["Province_State"] == estado]
-            .sort_values("Fecha")[["Fecha", "cases_week", "deaths_week"]]
+            .sort_values("Fecha")[["Fecha", "cases_week"]]
             .round(2)
             .to_dict(orient="records")
         )
@@ -577,7 +554,6 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
                 if pd.isna(registro["Testing_Rate_Original"])
                 else float(registro["Testing_Rate_Original"])
             ),
-            "rawRows": filas_estado[estado],
             "timeline": timeline_estado[estado],
         }
 
@@ -708,14 +684,36 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       width: min(380px, calc(100% - 32px));
       display: grid;
       gap: 8px;
+      pointer-events: none;
+    }
+
+    .search-toggle {
+      width: 46px;
+      height: 46px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid rgba(203, 213, 225, 0.9);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.96);
+      color: #0f172a;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+      cursor: pointer;
+      font-size: 21px;
+      pointer-events: auto;
     }
 
     .search-box {
+      display: none;
       padding: 10px;
       border: 1px solid rgba(203, 213, 225, 0.9);
       border-radius: 10px;
       background: rgba(255,255,255,0.94);
       box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+      pointer-events: auto;
+    }
+
+    .search-box.open {
+      display: block;
     }
 
     .search-box input {
@@ -773,9 +771,39 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       box-shadow: 0 8px 24px rgba(15,23,42,0.16);
       font-size: 12px;
       line-height: 1.5;
+      pointer-events: auto;
     }
 
     .map-legend b { display: block; margin-bottom: 4px; }
+
+    .legend-row,
+    .legend-clear {
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+      display: block;
+      font: inherit;
+      margin: 2px 0;
+      padding: 5px 6px;
+      text-align: left;
+    }
+
+    .legend-row:hover,
+    .legend-row.active {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
+    .legend-clear {
+      margin-top: 6px;
+      color: #2563eb;
+      font-weight: 800;
+      text-align: center;
+    }
+
     .swatch {
       display: inline-block;
       width: 10px;
@@ -890,37 +918,75 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     }
 
     #timelineChart {
-      height: 310px;
+      height: 285px;
     }
 
-    .table-wrap {
-      max-height: 260px;
-      overflow: auto;
+    .insights-panel {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
+    .insight {
+      border-left: 4px solid #2563eb;
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 9px 10px;
+      color: #334155;
       font-size: 12px;
     }
 
-    th, td {
-      padding: 8px;
-      border-bottom: 1px solid #e2e8f0;
-      text-align: right;
-      white-space: nowrap;
+    .insight b {
+      color: #0f172a;
     }
 
-    th {
-      position: sticky;
-      top: 0;
-      z-index: 1;
-      color: #334155;
-      background: #f8fafc;
+    .comparison-bars {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
       font-size: 11px;
     }
 
-    th:first-child, td:first-child { text-align: left; }
+    .comparison-row {
+      display: grid;
+      grid-template-columns: 122px 1fr;
+      gap: 9px;
+      align-items: center;
+    }
+
+    .comparison-label {
+      color: #334155;
+      font-weight: 800;
+      line-height: 1.15;
+    }
+
+    .bar-track {
+      position: relative;
+      height: 10px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--bar-color, #2563eb);
+    }
+
+    .bar-marker {
+      position: absolute;
+      top: -3px;
+      width: 2px;
+      height: 16px;
+      background: #0f172a;
+      opacity: 0.65;
+    }
+
+    .comparison-values {
+      grid-column: 2;
+      color: var(--muted);
+    }
 
     .leaflet-interactive {
       transition: fill-opacity 140ms ease, stroke-width 140ms ease;
@@ -949,20 +1015,22 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     <section class="map-shell">
       <div class="map-head">
         <h1>Mapa interactivo de clusters epidemiologicos</h1>
-        <p>Haz clic en un estado coloreado para abrir su radiografia: datos crudos, radar y semana explosiva.</p>
+        <p>Haz clic en un estado coloreado para abrir su radiografia: resumen, radar y semana explosiva.</p>
       </div>
       <div id="map"></div>
       <div class="map-tools">
-        <div class="search-box">
+        <button class="search-toggle" id="searchToggle" aria-label="Buscar estado" title="Buscar estado">&#128269;</button>
+        <div class="search-box" id="searchBox">
           <input id="stateSearch" type="search" placeholder="Buscar estado..." />
           <div class="state-results" id="stateButtons"></div>
         </div>
         <div class="map-legend">
           <b>Clusters base</b>
-          <div><span class="swatch" style="background:#2563eb"></span>Alta incidencia / testing medio-bajo</div>
-          <div><span class="swatch" style="background:#16a34a"></span>Testing muy alto / letalidad media-baja</div>
-          <div><span class="swatch" style="background:#dc2626"></span>Letalidad alta / testing medio</div>
-          <div><span class="swatch" style="background:#9333ea"></span>Incidencia menor / letalidad baja</div>
+          <button class="legend-row" data-cluster="1"><span class="swatch" style="background:#2563eb"></span>Alta incidencia / testing medio-bajo</button>
+          <button class="legend-row" data-cluster="2"><span class="swatch" style="background:#16a34a"></span>Testing muy alto / letalidad media-baja</button>
+          <button class="legend-row" data-cluster="3"><span class="swatch" style="background:#dc2626"></span>Letalidad alta / testing medio</button>
+          <button class="legend-row" data-cluster="4"><span class="swatch" style="background:#9333ea"></span>Incidencia menor / letalidad baja</button>
+          <button class="legend-clear" id="clearClusterFilter">Ver todos</button>
         </div>
       </div>
     </section>
@@ -989,13 +1057,13 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
         </section>
 
         <section class="section-card">
-          <h3>Datos crudos recientes</h3>
-          <div class="table-wrap">
-            <table>
-              <thead id="rawHead"></thead>
-              <tbody id="rawBody"></tbody>
-            </table>
-          </div>
+          <h3>Lectura automatica del estado</h3>
+          <div class="insights-panel" id="insightsPanel"></div>
+        </section>
+
+        <section class="section-card">
+          <h3>Variables clave: estado vs promedio del cluster</h3>
+          <div class="comparison-bars" id="comparisonBars"></div>
         </section>
       </div>
     </aside>
@@ -1007,12 +1075,15 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     const stateNames = Object.keys(states).sort();
     let selectedState = stateNames.includes("California") ? "California" : stateNames[0];
     let selectedLayer = null;
+    let activeClusterFilter = null;
     const layersByState = {};
-    const numberFmt = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
-    function formatValue(value, suffix = "") {
+    function formatValue(value, suffix = "", digits = 0) {
       if (value === null || value === undefined || Number.isNaN(Number(value))) return "--";
-      return numberFmt.format(Number(value)) + suffix;
+      return new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits
+      }).format(Number(value)) + suffix;
     }
 
     function normalized(feature, value) {
@@ -1048,6 +1119,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
         const name = feature.properties.name;
         const state = states[name];
         if (state) {
+          layer.stateName = name;
           layersByState[name] = layer;
           layer.bindTooltip(`<b>${name}</b><br>${state.profile}<br>Peor semana: ${state.peakWeekDate}`, {
             sticky: true,
@@ -1078,13 +1150,37 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
           const button = document.createElement("button");
           button.className = `state-button${name === selectedState ? " active" : ""}`;
           button.innerHTML = `<span>${name}</span><span class="dot" style="background:${state.color}"></span>`;
-          button.addEventListener("click", () => selectState(name));
+          button.addEventListener("click", () => {
+            selectState(name);
+            document.getElementById("searchBox").classList.remove("open");
+          });
           container.appendChild(button);
         });
     }
 
+    document.getElementById("searchToggle").addEventListener("click", () => {
+      const box = document.getElementById("searchBox");
+      box.classList.toggle("open");
+      if (box.classList.contains("open")) {
+        document.getElementById("stateSearch").focus();
+      }
+    });
+
     document.getElementById("stateSearch").addEventListener("input", event => {
       renderStateButtons(event.target.value);
+    });
+
+    document.querySelectorAll(".legend-row").forEach(button => {
+      button.addEventListener("click", () => {
+        const cluster = Number(button.dataset.cluster);
+        activeClusterFilter = activeClusterFilter === cluster ? null : cluster;
+        applyClusterFilter();
+      });
+    });
+
+    document.getElementById("clearClusterFilter").addEventListener("click", () => {
+      activeClusterFilter = null;
+      applyClusterFilter();
     });
 
     function renderMetricStrip(state) {
@@ -1094,32 +1190,80 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       document.getElementById("metricStrip").innerHTML = `
         <div class="mini-metric"><strong>${formatValue(state.metrics.Incident_Rate)}</strong><span>Incidencia acumulada</span></div>
         <div class="mini-metric"><strong>${formatValue(state.metrics.Testing_Rate)}</strong><span>${original}</span></div>
-        <div class="mini-metric"><strong>${formatValue(state.metrics.Case_Fatality_Ratio, "%")}</strong><span>Letalidad acumulada</span></div>
-        <div class="mini-metric"><strong>${formatValue(state.metrics.peak_case_share_pct, "%")}</strong><span>% casos en peor semana</span></div>
+        <div class="mini-metric"><strong>${formatValue(state.metrics.Case_Fatality_Ratio, "%", 1)}</strong><span>Letalidad acumulada</span></div>
+        <div class="mini-metric"><strong>${formatValue(state.metrics.peak_case_share_pct, "%", 1)}</strong><span>% casos en peor semana</span></div>
         <div class="mini-metric"><strong>${formatValue(state.metrics.peak_incidence_per_100k)}</strong><span>Pico semanal / 100k</span></div>
-        <div class="mini-metric"><strong>${formatValue(state.metrics.window_fatality_ratio, "%")}</strong><span>Letalidad ventana</span></div>
+        <div class="mini-metric"><strong>${formatValue(state.metrics.window_fatality_ratio, "%", 1)}</strong><span>Letalidad ventana</span></div>
       `;
       document.getElementById("stressNote").textContent =
-        `${state.state} tuvo su semana explosiva el ${state.peakWeekDate}: ${formatValue(state.peakWeekCases)} casos en una semana, equivalentes al ${formatValue(state.metrics.peak_case_share_pct, "%")} de sus casos historicos.`;
+        `${state.state} tuvo su semana explosiva el ${state.peakWeekDate}: ${formatValue(state.peakWeekCases)} casos en una semana, equivalentes al ${formatValue(state.metrics.peak_case_share_pct, "%", 1)} de sus casos historicos.`;
     }
 
-    function renderRawTable(state) {
-      const columns = [
-        ["Fecha", "Fecha"],
-        ["Confirmed", "Confirmados"],
-        ["Deaths", "Muertes"],
-        ["Incident_Rate", "Incidencia"],
-        ["Testing_Rate", "Testing"],
-        ["Case_Fatality_Ratio", "Letalidad %"],
-        ["Casos_Nuevos", "Casos nuevos"],
-        ["Muertes_Nuevas", "Muertes nuevas"],
+    function relationText(value, average, higherLabel, lowerLabel) {
+      if (!average) return "sin comparacion suficiente";
+      const diff = ((value - average) / average) * 100;
+      if (diff > 8) return `${higherLabel} que el promedio de su cluster`;
+      if (diff < -8) return `${lowerLabel} que el promedio de su cluster`;
+      return "muy cercano al promedio de su cluster";
+    }
+
+    function renderInsights(state) {
+      const cluster = appData.clusters[state.profile];
+      const incidenceText = relationText(
+        state.metrics.Incident_Rate,
+        cluster.Incident_Rate,
+        "mayor",
+        "menor"
+      );
+      const testingText = relationText(
+        state.metrics.Testing_Rate,
+        cluster.Testing_Rate,
+        "mayor",
+        "menor"
+      );
+      const fatalityText = relationText(
+        state.metrics.Case_Fatality_Ratio,
+        cluster.Case_Fatality_Ratio,
+        "mayor",
+        "menor"
+      );
+      const stressText = relationText(
+        state.metrics.window_fatality_ratio,
+        cluster.window_fatality_ratio,
+        "mas alta",
+        "mas baja"
+      );
+      document.getElementById("insightsPanel").innerHTML = `
+        <div class="insight"><b>Perfil asignado:</b> ${state.profileName}. El mapa lo pinta con este color porque K-Means lo agrupo junto a estados de comportamiento parecido.</div>
+        <div class="insight"><b>Lectura base:</b> su incidencia acumulada es ${incidenceText}; su testing rate es ${testingText}; y su letalidad acumulada es ${fatalityText}.</div>
+        <div class="insight"><b>Durante la semana explosiva:</b> su letalidad de ventana fue ${stressText}. Esto ayuda a evaluar si resistio mejor o peor que su propio grupo.</div>
+      `;
+    }
+
+    function renderComparisonBars(state) {
+      const cluster = appData.clusters[state.profile];
+      const features = [
+        "Incident_Rate",
+        "Testing_Rate",
+        "Case_Fatality_Ratio",
+        "peak_case_share_pct",
+        "window_fatality_ratio"
       ];
-      document.getElementById("rawHead").innerHTML = `<tr>${columns.map(([, label]) => `<th>${label}</th>`).join("")}</tr>`;
-      document.getElementById("rawBody").innerHTML = state.rawRows.map(row => {
-        return `<tr>${columns.map(([key]) => {
-          const value = key === "Fecha" ? row[key] : formatValue(row[key]);
-          return `<td>${value}</td>`;
-        }).join("")}</tr>`;
+      document.getElementById("comparisonBars").innerHTML = features.map(feature => {
+        const stateNorm = Math.max(0, Math.min(100, normalized(feature, state.metrics[feature])));
+        const clusterNorm = Math.max(0, Math.min(100, normalized(feature, cluster[feature])));
+        const digits = feature.includes("Ratio") || feature.includes("pct") ? 1 : 0;
+        const suffix = feature.includes("Ratio") || feature.includes("pct") ? "%" : "";
+        return `
+          <div class="comparison-row">
+            <div class="comparison-label">${appData.featureLabels[feature]}</div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:${stateNorm}%; --bar-color:${state.color}"></div>
+              <div class="bar-marker" style="left:${clusterNorm}%"></div>
+            </div>
+            <div class="comparison-values">Estado: ${formatValue(state.metrics[feature], suffix, digits)} · Cluster: ${formatValue(cluster[feature], suffix, digits)}</div>
+          </div>
+        `;
       }).join("");
     }
 
@@ -1166,11 +1310,12 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     function renderTimeline(state) {
       const x = state.timeline.map(row => row.Fecha);
       const cases = state.timeline.map(row => row.cases_week);
-      const deaths = state.timeline.map(row => row.deaths_week);
       const peakStart = state.peakWeekDate;
       const peakEndDate = new Date(`${state.peakWeekDate}T00:00:00`);
       peakEndDate.setDate(peakEndDate.getDate() + 7);
       const peakEnd = peakEndDate.toISOString().slice(0, 10);
+      const peakIndex = x.indexOf(peakStart);
+      const peakY = peakIndex >= 0 ? cases[peakIndex] : Math.max(...cases);
 
       Plotly.react("timelineChart", [
         {
@@ -1182,22 +1327,20 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
           line: { color: state.color, width: 3 },
           fill: "tozeroy",
           fillcolor: `${state.color}1f`
-        },
+        }, 
         {
           type: "scatter",
-          mode: "lines",
-          x,
-          y: deaths,
-          name: "Muertes semanales",
-          line: { color: "#111827", width: 1.7, dash: "dot" },
-          yaxis: "y2"
+          mode: "markers",
+          x: [peakStart],
+          y: [peakY],
+          name: "Pico explosivo",
+          marker: { color: "#dc2626", size: 11, line: { color: "white", width: 2 } }
         }
       ], {
-        margin: { l: 56, r: 52, t: 18, b: 46 },
+        margin: { l: 56, r: 24, t: 18, b: 46 },
         paper_bgcolor: "rgba(0,0,0,0)",
         xaxis: { gridcolor: "#e2e8f0" },
         yaxis: { title: "Casos", gridcolor: "#e2e8f0" },
-        yaxis2: { title: "Muertes", overlaying: "y", side: "right", showgrid: false },
         legend: { orientation: "h", y: -0.22 },
         shapes: [{
           type: "rect",
@@ -1225,6 +1368,21 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       }, { responsive: true, displayModeBar: false });
     }
 
+    function applyClusterFilter() {
+      document.querySelectorAll(".legend-row").forEach(button => {
+        button.classList.toggle("active", Number(button.dataset.cluster) === activeClusterFilter);
+      });
+      Object.entries(layersByState).forEach(([name, layer]) => {
+        const state = states[name];
+        const visible = activeClusterFilter === null || state.profileId === activeClusterFilter;
+        layer.setStyle({
+          fillOpacity: name === selectedState ? 0.98 : (visible ? 0.82 : 0.13),
+          weight: name === selectedState ? 3.4 : (visible ? 1.3 : 0.8),
+          color: name === selectedState ? "#111827" : "#ffffff"
+        });
+      });
+    }
+
     function highlightMapState(name) {
       if (selectedLayer) {
         selectedLayer.setStyle({ weight: 1.3, color: "#ffffff", fillOpacity: 0.82 });
@@ -1247,10 +1405,12 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       pill.style.background = `${state.color}44`;
       renderStateButtons(document.getElementById("stateSearch").value);
       renderMetricStrip(state);
-      renderRawTable(state);
+      renderInsights(state);
+      renderComparisonBars(state);
       renderRadar(state);
       renderTimeline(state);
       highlightMapState(name);
+      applyClusterFilter();
     }
 
     renderStateButtons();
