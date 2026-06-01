@@ -316,10 +316,10 @@
   <header>
     <div class="hero">
       <p class="eyebrow">Clustering de Perfiles</p>
-      <h1>Perfiles de resiliencia sanitaria ante brotes epidemiologicos explosivos</h1>
+      <h1>Perfiles epidemiologicos y resiliencia ante semanas explosivas</h1>
       <p>
-        Clasificacion de estados segun su capacidad de contener la letalidad durante ventanas criticas de contagio,
-        combinando intensidad del brote, testing y letalidad observada.
+        Primero se agrupan los estados segun incidencia acumulada, capacidad de testeo y letalidad acumulada.
+        Luego se evalua como respondio cada perfil durante su peor semana epidemiologica.
       </p>
     </div>
   </header>
@@ -329,7 +329,8 @@
       <h2>Problema general</h2>
       <p>
         Identificacion de perfiles de resiliencia sanitaria mediante clustering:
-        clasificacion de regiones segun su capacidad de contener la letalidad durante brotes epidemiologicos explosivos.
+        clasificacion de regiones segun su perfil epidemiologico base y su capacidad de contener la letalidad
+        durante brotes epidemiologicos explosivos.
       </p>
     </section>
 
@@ -340,40 +341,40 @@
       </div>
       <div class="metric">
         <strong>4</strong>
-        <span>perfiles de resiliencia sanitaria</span>
+        <span>perfiles epidemiologicos base</span>
       </div>
       <div class="metric">
         <strong>5 sem.</strong>
-        <span>ventana critica tras la peor semana</span>
+        <span>ventana critica para medir resiliencia</span>
       </div>
       <div class="metric">
         <strong>K-Means</strong>
-        <span>algoritmo de agrupamiento usado</span>
+        <span>agrupamiento no supervisado usado</span>
       </div>
     </section>
 
     <section class="section">
       <div class="section-head">
-        <h2>1. Definicion operacional del brote explosivo</h2>
-        <span class="tag">Metodologia</span>
+        <h2>1. Clustering epidemiologico base</h2>
+        <span class="tag">K-Means</span>
       </div>
       <div class="body">
         <div class="hypothesis">
           <span>Pregunta central</span>
-          <p>Que estados mantuvieron menor letalidad durante o despues de su peor pico semanal de contagios?</p>
+          <p>Se pueden agrupar los estados en perfiles comparables usando incidencia acumulada, testing rate y letalidad acumulada?</p>
         </div>
         <div class="notes">
           <div class="note">
-            <h3>Explosividad</h3>
-            <p>Se mide con el porcentaje de casos historicos que ocurrieron en la peor semana.</p>
+            <h3>Incidencia acumulada</h3>
+            <p>Casos confirmados acumulados por cada 100,000 habitantes. Permite comparar estados de distinto tamanio.</p>
           </div>
           <div class="note">
-            <h3>Intensidad del pico</h3>
-            <p>Se mide como casos de la peor semana por cada 100,000 habitantes estimados.</p>
+            <h3>Testing rate</h3>
+            <p>Pruebas realizadas por cada 100,000 habitantes. Representa capacidad de deteccion y vigilancia sanitaria.</p>
           </div>
           <div class="note">
-            <h3>Contencion de letalidad</h3>
-            <p>Se mide con la letalidad acumulada durante la peor semana y las 4 semanas posteriores.</p>
+            <h3>Letalidad acumulada</h3>
+            <p>Porcentaje de muertes sobre casos confirmados acumulados. Es una senial del impacto sanitario observado.</p>
           </div>
         </div>
       </div>
@@ -381,34 +382,34 @@
 
     <section class="section">
       <div class="section-head">
-        <h2>2. Perfiles de resiliencia sanitaria</h2>
-        <span class="tag">Clustering</span>
+        <h2>2. Union con la semana explosiva</h2>
+        <span class="tag">Stress test</span>
       </div>
       <div class="body">
         <div class="hypothesis">
           <span>Hipotesis principal</span>
           <p>
-            Es posible agrupar estados en perfiles homogeneos de resiliencia sanitaria combinando explosividad del brote,
-            intensidad del pico, capacidad de testeo y letalidad durante la ventana critica.
+            Los perfiles epidemiologicos base no necesariamente responden igual cuando enfrentan su peor semana de contagios.
+            Por eso la semana explosiva funciona como una prueba de estres para comparar resiliencia sanitaria.
           </p>
         </div>
 
         <div class="cluster-list">
           <div class="cluster-card">
-            <b><span class="swatch" style="background:#f59e0b"></span>Brote explosivo / control intermedio</b>
-            Estados con pico fuerte, pero letalidad de ventana no extrema.
+            <b><span class="swatch" style="background:#2563eb"></span>Alta incidencia / testing medio-bajo</b>
+            Estados con contagio acumulado alto y capacidad de testeo no tan alta como el grupo mas vigilado.
           </div>
           <div class="cluster-card">
-            <b><span class="swatch" style="background:#2563eb"></span>Baja explosividad / resiliencia intermedia</b>
-            Estados con peor semana menos dominante y letalidad moderada.
+            <b><span class="swatch" style="background:#16a34a"></span>Testing muy alto / letalidad media-baja</b>
+            Estados con mucha deteccion relativa y menor letalidad promedio.
           </div>
           <div class="cluster-card">
-            <b><span class="swatch" style="background:#dc2626"></span>Perfil critico / letalidad alta</b>
-            Estados con mayor letalidad durante la ventana critica.
+            <b><span class="swatch" style="background:#dc2626"></span>Letalidad alta / testing medio</b>
+            Estados donde el porcentaje de muertes sobre casos acumulados fue mas elevado.
           </div>
           <div class="cluster-card">
-            <b><span class="swatch" style="background:#16a34a"></span>Alta capacidad de testeo / letalidad baja</b>
-            Estados con alto testing y menor letalidad durante el brote.
+            <b><span class="swatch" style="background:#9333ea"></span>Incidencia menor / letalidad baja</b>
+            Estados con impacto acumulado menos severo y menor letalidad relativa.
           </div>
         </div>
 
@@ -416,38 +417,47 @@
           <figure>
             <img src="outputs/resiliencia_scatter_clusters.png" alt="Scatterplot de perfiles de resiliencia sanitaria" />
             <figcaption>
-              Eje X: intensidad del pico semanal. Eje Y: letalidad en ventana critica.
-              El tamanio representa testing rate y el color representa el cluster.
+              Cada punto es un estado. Eje X: incidencia acumulada. Eje Y: letalidad acumulada.
+              El color indica el cluster base y el tamanio muestra que tan concentrada fue su peor semana.
             </figcaption>
           </figure>
           <figure>
             <img src="outputs/resiliencia_heatmap_perfiles.png" alt="Heatmap de perfiles de resiliencia sanitaria" />
             <figcaption>
-              El heatmap resume el promedio de cada variable por cluster y ayuda a interpretar que caracteriza a cada perfil.
+              El heatmap une las variables del clustering base con las variables de semana explosiva para interpretar cada perfil.
             </figcaption>
           </figure>
         </div>
+
+        <figure style="margin-top:18px">
+          <img src="outputs/resiliencia_boxplot_letalidad_ventana.png" alt="Boxplot de letalidad en ventana critica por perfil" />
+          <figcaption>
+            Este grafico compara la letalidad durante la peor semana y las 4 semanas posteriores.
+            Sirve para ver si un perfil base mantuvo mejor o peor control en su momento de mayor presion.
+          </figcaption>
+        </figure>
       </div>
     </section>
 
     <section class="section">
       <div class="section-head">
-        <h2>3. Mapa interactivo de perfiles</h2>
-        <span class="tag">Visualizacion geografica</span>
+        <h2>3. Mapa interactivo integrado</h2>
+        <span class="tag">Folium</span>
       </div>
       <div class="body">
         <div class="hypothesis">
           <span>Lectura geografica</span>
           <p>
-            Si los perfiles no coinciden completamente con regiones geograficas, entonces la resiliencia sanitaria no depende solo de ubicacion,
-            sino de la combinacion entre brote, testeo y letalidad.
+            El color del mapa muestra el cluster epidemiologico base. Al pasar el cursor sobre un estado se observa
+            si ese mismo perfil resistio bien o mal durante su semana explosiva.
           </p>
         </div>
         <figure>
           <iframe src="outputs/mapa_resiliencia_clusters.html" title="Mapa de clusters de resiliencia sanitaria"></iframe>
           <figcaption>
-            Mapa interactivo generado con Folium. Al pasar el cursor sobre cada estado se observa el perfil, la intensidad del pico,
-            la letalidad de ventana critica y el testing rate. Abrir directamente
+            Mapa interactivo generado con Folium. El tooltip muestra incidencia acumulada, testing rate, letalidad acumulada,
+            fecha de peor semana, porcentaje de casos concentrados en esa semana, pico semanal por 100,000 habitantes
+            y letalidad de la ventana critica. Abrir directamente
             <a href="outputs/mapa_resiliencia_clusters.html">este archivo</a> para verlo en pantalla completa.
           </figcaption>
         </figure>
@@ -457,9 +467,9 @@
     <section class="final">
       <h2>Conclusion central</h2>
       <p>
-        El clustering permite transformar un brote epidemiologico en perfiles comparables de resiliencia sanitaria.
-        El hallazgo mas importante es distinguir estados con brotes intensos pero baja letalidad de aquellos con menor explosividad,
-        pero mayor letalidad en la ventana critica. Esto aporta una lectura mas rica que observar solo casos totales o letalidad global.
+        La mejor union es tratar el clustering original como diagnostico base y la semana explosiva como prueba de estres.
+        Asi se conserva el analisis de incidencia, testing y letalidad, pero se agrega una lectura mas interesante:
+        no solo que perfil tenia cada estado, sino que tan bien resistio cuando llego su peor momento epidemiologico.
       </p>
     </section>
   </main>

@@ -20,25 +20,32 @@ from covid_utils import (
 )
 
 
-FEATURES_RESILIENCIA = [
+FEATURES_CLUSTER_BASE = [
+    "Incident_Rate",
+    "Testing_Rate",
+    "Case_Fatality_Ratio",
+]
+
+FEATURES_STRESS = [
     "peak_case_share_pct",
     "peak_incidence_per_100k",
-    "Testing_Rate",
     "window_fatality_ratio",
 ]
 
-CLUSTER_COLORS = {
-    0: "#f59e0b",
-    1: "#2563eb",
-    2: "#dc2626",
-    3: "#16a34a",
+FEATURES_REPORTE = FEATURES_CLUSTER_BASE + FEATURES_STRESS
+
+PROFILE_ORDER = {
+    "Alta incidencia / testing medio-bajo": 1,
+    "Testing muy alto / letalidad media-baja": 2,
+    "Letalidad alta / testing medio": 3,
+    "Incidencia menor / letalidad baja": 4,
 }
 
-CLUSTER_NAMES = {
-    0: "Brote explosivo / control intermedio",
-    1: "Baja explosividad / resiliencia intermedia",
-    2: "Perfil critico / letalidad alta",
-    3: "Alta capacidad de testeo / letalidad baja",
+PROFILE_COLORS = {
+    1: "#2563eb",
+    2: "#16a34a",
+    3: "#dc2626",
+    4: "#9333ea",
 }
 
 
@@ -115,24 +122,51 @@ def construir_metricas_resiliencia() -> pd.DataFrame:
             }
         )
 
-    metricas = pd.DataFrame(filas).dropna(subset=FEATURES_RESILIENCIA)
+    metricas = pd.DataFrame(filas).dropna(subset=FEATURES_REPORTE)
     return metricas
+
+
+def nombrar_perfiles(datos: pd.DataFrame) -> dict[int, str]:
+    resumen = datos.groupby("Cluster_Modelo")[FEATURES_CLUSTER_BASE].mean()
+    pendientes = set(resumen.index.tolist())
+    etiquetas = {}
+
+    cluster_testing_alto = resumen["Testing_Rate"].idxmax()
+    etiquetas[cluster_testing_alto] = "Testing muy alto / letalidad media-baja"
+    pendientes.remove(cluster_testing_alto)
+
+    cluster_letalidad_alta = resumen.loc[list(pendientes), "Case_Fatality_Ratio"].idxmax()
+    etiquetas[cluster_letalidad_alta] = "Letalidad alta / testing medio"
+    pendientes.remove(cluster_letalidad_alta)
+
+    cluster_incidencia_alta = resumen.loc[list(pendientes), "Incident_Rate"].idxmax()
+    etiquetas[cluster_incidencia_alta] = "Alta incidencia / testing medio-bajo"
+    pendientes.remove(cluster_incidencia_alta)
+
+    for cluster in pendientes:
+        etiquetas[cluster] = "Incidencia menor / letalidad baja"
+
+    return etiquetas
 
 
 def asignar_clusters(metricas: pd.DataFrame, n_clusters: int = 4) -> pd.DataFrame:
     scaler = StandardScaler()
-    matriz = scaler.fit_transform(metricas[FEATURES_RESILIENCIA])
+    matriz = scaler.fit_transform(metricas[FEATURES_CLUSTER_BASE])
     modelo = KMeans(n_clusters=n_clusters, random_state=42, n_init=30)
 
     datos = metricas.copy()
-    datos["Cluster"] = modelo.fit_predict(matriz)
-    datos["Cluster_Label"] = datos["Cluster"].map(
-        lambda cluster: f"Cluster {cluster + 1}: {CLUSTER_NAMES[cluster]}"
+    datos["Cluster_Modelo"] = modelo.fit_predict(matriz)
+    etiquetas = nombrar_perfiles(datos)
+    datos["Perfil_Nombre"] = datos["Cluster_Modelo"].map(etiquetas)
+    datos["Perfil_ID"] = datos["Perfil_Nombre"].map(PROFILE_ORDER)
+    datos["Perfil_Label"] = datos.apply(
+        lambda row: f"Cluster {int(row['Perfil_ID'])}: {row['Perfil_Nombre']}",
+        axis=1,
     )
     datos.to_csv(OUTPUT_DIR / "metricas_resiliencia_sanitaria.csv", index=False)
 
     resumen = (
-        datos.groupby("Cluster_Label")[FEATURES_RESILIENCIA + ["Case_Fatality_Ratio"]]
+        datos.groupby("Perfil_Label")[FEATURES_REPORTE]
         .mean()
         .round(2)
         .reset_index()
@@ -144,39 +178,42 @@ def asignar_clusters(metricas: pd.DataFrame, n_clusters: int = 4) -> pd.DataFram
 def crear_scatter_resiliencia(datos: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(13, 7.5))
 
-    min_testing = datos["Testing_Rate"].min()
-    max_testing = datos["Testing_Rate"].max()
+    min_share = datos["peak_case_share_pct"].min()
+    max_share = datos["peak_case_share_pct"].max()
 
     def escalar_tamanio(serie: pd.Series) -> pd.Series:
-        normalizado = (serie - min_testing) / (max_testing - min_testing)
-        return 70 + normalizado * 560
+        normalizado = (serie - min_share) / (max_share - min_share)
+        return 90 + normalizado * 760
 
-    for cluster, grupo in datos.groupby("Cluster"):
+    for perfil_id, grupo in datos.sort_values("Perfil_ID").groupby("Perfil_ID"):
         ax.scatter(
-            grupo["peak_incidence_per_100k"],
-            grupo["window_fatality_ratio"],
-            s=escalar_tamanio(grupo["Testing_Rate"]),
-            color=CLUSTER_COLORS[cluster],
+            grupo["Incident_Rate"],
+            grupo["Case_Fatality_Ratio"],
+            s=escalar_tamanio(grupo["peak_case_share_pct"]),
+            color=PROFILE_COLORS[perfil_id],
             alpha=0.76,
             edgecolor="white",
             linewidth=0.8,
-            label=f"Cluster {cluster + 1}: {CLUSTER_NAMES[cluster]}",
+            label=grupo["Perfil_Label"].iloc[0],
         )
+
+    ax.axvline(datos["Incident_Rate"].median(), color="#94a3b8", linestyle="--", linewidth=1.5)
+    ax.axhline(datos["Case_Fatality_Ratio"].median(), color="#94a3b8", linestyle="--", linewidth=1.5)
 
     handles_cluster, labels_cluster = ax.get_legend_handles_labels()
     legend_cluster = ax.legend(
         handles_cluster,
         labels_cluster,
-        title="Perfil de resiliencia sanitaria",
+        title="Perfil epidemiologico base",
         loc="upper right",
         frameon=True,
     )
     ax.add_artist(legend_cluster)
 
-    valores_testing = [
-        datos["Testing_Rate"].quantile(0.25),
-        datos["Testing_Rate"].quantile(0.50),
-        datos["Testing_Rate"].quantile(0.75),
+    valores_share = [
+        datos["peak_case_share_pct"].quantile(0.25),
+        datos["peak_case_share_pct"].quantile(0.50),
+        datos["peak_case_share_pct"].quantile(0.75),
     ]
     size_handles = [
         Line2D(
@@ -186,54 +223,95 @@ def crear_scatter_resiliencia(datos: pd.DataFrame) -> None:
             linestyle="",
             markerfacecolor="#94a3b8",
             markeredgecolor="white",
-            markersize=(escalar_tamanio(pd.Series([valor])).iloc[0] ** 0.5),
-            label=f"{valor:,.0f}",
+            markersize=(escalar_tamanio(pd.Series([valor])).iloc[0] ** 0.5) / 1.45,
+            label=f"{valor:.1f}%",
         )
-        for valor in valores_testing
+        for valor in valores_share
     ]
     ax.legend(
         handles=size_handles,
-        title="Testing rate",
+        title="% casos en peor semana",
         loc="lower right",
         frameon=True,
     )
 
-    ax.set_title("Perfiles de resiliencia ante brotes explosivos")
-    ax.set_xlabel("Intensidad del pico semanal (casos por 100,000 habitantes)")
-    ax.set_ylabel("Letalidad en ventana critica de 5 semanas (%)")
-    ax.text(
-        0.01,
-        0.02,
-        "Nota: puntos mas grandes = mayor testing rate",
-        transform=ax.transAxes,
-        fontsize=10,
-        color="#475569",
-        bbox=dict(
-            boxstyle="round,pad=0.35",
-            facecolor="white",
-            edgecolor="#cbd5e1",
-            alpha=0.9,
-        ),
-    )
+    ax.set_title("Clustering epidemiologico base + magnitud de la semana explosiva")
+    ax.set_xlabel("Incidencia acumulada (casos por 100,000 habitantes aprox.)")
+    ax.set_ylabel("Letalidad acumulada (%)")
+    ax.margins(x=0.05, y=0.18)
     ax.grid(alpha=0.25)
     plt.tight_layout()
     plt.savefig(OUTPUT_DIR / "resiliencia_scatter_clusters.png", dpi=170)
     plt.close(fig)
 
 
+def crear_boxplot_resiliencia(datos: pd.DataFrame) -> None:
+    orden = [
+        f"Cluster {PROFILE_ORDER[nombre]}: {nombre}" for nombre in PROFILE_ORDER
+    ]
+    grupos = [
+        datos.loc[datos["Perfil_Label"] == perfil, "window_fatality_ratio"].values
+        for perfil in orden
+    ]
+
+    fig, ax = plt.subplots(figsize=(13, 6.2))
+    box = ax.boxplot(
+        grupos,
+        patch_artist=True,
+        labels=[
+            "Alta incidencia\n/testing medio-bajo",
+            "Testing muy alto\n/letalidad media-baja",
+            "Letalidad alta\n/testing medio",
+            "Incidencia menor\n/letalidad baja",
+        ],
+        medianprops={"color": "#111827", "linewidth": 2},
+        boxprops={"linewidth": 1.2},
+        whiskerprops={"linewidth": 1.2},
+        capprops={"linewidth": 1.2},
+    )
+
+    for patch, perfil_id in zip(box["boxes"], PROFILE_COLORS):
+        patch.set_facecolor(PROFILE_COLORS[perfil_id])
+        patch.set_alpha(0.72)
+
+    for i, valores in enumerate(grupos, start=1):
+        ax.scatter(
+            [i] * len(valores),
+            valores,
+            color="#0f172a",
+            s=24,
+            alpha=0.55,
+            zorder=3,
+        )
+
+    ax.set_title("Prueba de estres: letalidad durante la ventana critica por perfil base")
+    ax.set_ylabel("Letalidad en peor semana + 4 semanas posteriores (%)")
+    ax.set_xlabel("Perfil epidemiologico base")
+    ax.grid(axis="y", alpha=0.25)
+    plt.tight_layout()
+    plt.savefig(OUTPUT_DIR / "resiliencia_boxplot_letalidad_ventana.png", dpi=170)
+    plt.close(fig)
+
+
 def crear_heatmap_perfiles(datos: pd.DataFrame) -> None:
-    resumen = datos.groupby("Cluster_Label")[FEATURES_RESILIENCIA].mean()
+    resumen = datos.groupby("Perfil_Label")[FEATURES_REPORTE].mean()
+    orden = [
+        f"Cluster {PROFILE_ORDER[nombre]}: {nombre}" for nombre in PROFILE_ORDER
+    ]
+    resumen = resumen.reindex(orden)
     normalizado = (resumen - resumen.min()) / (resumen.max() - resumen.min())
 
-    fig, ax = plt.subplots(figsize=(13, 5.6))
+    fig, ax = plt.subplots(figsize=(14, 6.2))
     im = ax.imshow(normalizado.values, cmap="YlGnBu", aspect="auto")
 
-    ax.set_xticks(range(len(FEATURES_RESILIENCIA)))
+    ax.set_xticks(range(len(FEATURES_REPORTE)))
     ax.set_xticklabels(
         [
+            "Incidencia acumulada",
+            "Testing rate",
+            "Letalidad acumulada",
             "% casos en peor semana",
             "Pico semanal por 100k",
-            "Testing rate",
             "Letalidad ventana 5 sem.",
         ],
         rotation=20,
@@ -241,7 +319,7 @@ def crear_heatmap_perfiles(datos: pd.DataFrame) -> None:
     )
     ax.set_yticks(range(len(normalizado.index)))
     ax.set_yticklabels(normalizado.index)
-    ax.set_title("Perfil normalizado de cada cluster de resiliencia")
+    ax.set_title("Union entre perfil epidemiologico base y estres por semana explosiva")
 
     for i in range(normalizado.shape[0]):
         for j in range(normalizado.shape[1]):
@@ -251,7 +329,7 @@ def crear_heatmap_perfiles(datos: pd.DataFrame) -> None:
                 f"{resumen.iloc[i, j]:,.2f}",
                 ha="center",
                 va="center",
-                color="#0f172a",
+                color="white" if normalizado.iloc[i, j] > 0.62 else "#0f172a",
                 fontsize=9,
             )
 
@@ -275,30 +353,36 @@ def crear_mapa_resiliencia(datos: pd.DataFrame) -> None:
                 {
                     "cluster": "Sin datos",
                     "region": "Sin datos",
+                    "incident": "Sin datos",
+                    "fatality_global": "Sin datos",
                     "peak_share": "Sin datos",
                     "peak_incidence": "Sin datos",
                     "fatality_window": "Sin datos",
                     "testing": "Sin datos",
+                    "peak_date": "Sin datos",
                 }
             )
             continue
 
         props.update(
             {
-                "cluster_id": int(registro["Cluster"]),
-                "cluster": registro["Cluster_Label"],
+                "perfil_id": int(registro["Perfil_ID"]),
+                "cluster": registro["Perfil_Label"],
                 "region": registro["Region"],
+                "incident": f"{registro['Incident_Rate']:,.0f}",
+                "fatality_global": f"{registro['Case_Fatality_Ratio']:.2f}%",
                 "peak_share": f"{registro['peak_case_share_pct']:.2f}%",
                 "peak_incidence": f"{registro['peak_incidence_per_100k']:,.0f}",
                 "fatality_window": f"{registro['window_fatality_ratio']:.2f}%",
                 "testing": f"{registro['Testing_Rate']:,.0f}",
+                "peak_date": pd.to_datetime(registro["peak_week_date"]).strftime("%Y-%m-%d"),
             }
         )
 
     def estilo_estado(feature: dict) -> dict:
-        cluster = feature["properties"].get("cluster_id")
+        perfil = feature["properties"].get("perfil_id")
         return {
-            "fillColor": "#d9d9d9" if cluster is None else CLUSTER_COLORS[cluster],
+            "fillColor": "#d9d9d9" if perfil is None else PROFILE_COLORS[perfil],
             "color": "#ffffff",
             "weight": 1.1,
             "fillOpacity": 0.84,
@@ -326,19 +410,25 @@ def crear_mapa_resiliencia(datos: pd.DataFrame) -> None:
                 "name",
                 "cluster",
                 "region",
+                "incident",
+                "testing",
+                "fatality_global",
+                "peak_date",
                 "peak_share",
                 "peak_incidence",
                 "fatality_window",
-                "testing",
             ],
             aliases=[
                 "Estado:",
-                "Perfil:",
+                "Perfil base:",
                 "Region:",
+                "Incidencia acumulada:",
+                "Testing rate:",
+                "Letalidad acumulada:",
+                "Fecha peor semana:",
                 "% casos en peor semana:",
                 "Pico semanal por 100k:",
                 "Letalidad ventana 5 semanas:",
-                "Testing rate:",
             ],
             sticky=True,
             labels=True,
@@ -356,11 +446,11 @@ def crear_mapa_resiliencia(datos: pd.DataFrame) -> None:
         background: rgba(255,255,255,0.94); padding: 12px 14px;
         border-radius: 10px; box-shadow: 0 6px 24px rgba(15,23,42,0.18);
         font-family: Arial, sans-serif; font-size: 13px; color: #111827;">
-        <b>Perfiles de resiliencia</b><br>
-        <span style="color:#f59e0b;">■</span> Brote explosivo / control intermedio<br>
-        <span style="color:#2563eb;">■</span> Baja explosividad / resiliencia intermedia<br>
-        <span style="color:#dc2626;">■</span> Perfil critico / letalidad alta<br>
-        <span style="color:#16a34a;">■</span> Alta capacidad de testeo / letalidad baja<br>
+        <b>Clusters epidemiologicos base</b><br>
+        <span style="color:#2563eb;">■</span> Alta incidencia / testing medio-bajo<br>
+        <span style="color:#16a34a;">■</span> Testing muy alto / letalidad media-baja<br>
+        <span style="color:#dc2626;">■</span> Letalidad alta / testing medio<br>
+        <span style="color:#9333ea;">■</span> Incidencia menor / letalidad baja<br>
     </div>
     """
     titulo = """
@@ -370,10 +460,10 @@ def crear_mapa_resiliencia(datos: pd.DataFrame) -> None:
         border-radius: 10px; box-shadow: 0 6px 24px rgba(15,23,42,0.18);
         font-family: Arial, sans-serif; max-width: 520px;">
         <div style="font-size: 18px; font-weight: 700; color: #111827;">
-            Clusters de resiliencia sanitaria
+            Perfil base + prueba de estres por semana explosiva
         </div>
         <div style="font-size: 13px; color: #374151; margin-top: 4px;">
-            Agrupacion de estados segun brote explosivo, testing y letalidad durante la ventana critica.
+            El color muestra el cluster base; el tooltip muestra como resistio cada estado durante su peor semana.
         </div>
     </div>
     """
@@ -393,14 +483,18 @@ def main() -> None:
     print("\nPROBLEMA GENERAL")
     print(
         "Identificacion de perfiles de resiliencia sanitaria mediante clustering "
-        "durante brotes epidemiologicos explosivos."
+        "base y prueba de estres por semana explosiva."
     )
-    print("\nVariables usadas en clustering:")
-    for variable in FEATURES_RESILIENCIA:
+    print("\nVariables usadas para el clustering base:")
+    for variable in FEATURES_CLUSTER_BASE:
+        print(f"- {variable}")
+
+    print("\nVariables usadas para evaluar la semana explosiva:")
+    for variable in FEATURES_STRESS:
         print(f"- {variable}")
 
     resumen = (
-        datos.groupby("Cluster_Label")[FEATURES_RESILIENCIA + ["Case_Fatality_Ratio"]]
+        datos.groupby("Perfil_Label")[FEATURES_REPORTE]
         .mean()
         .round(2)
     )
@@ -408,13 +502,14 @@ def main() -> None:
     print(resumen.to_string())
 
     print("\nEstados por perfil:")
-    for cluster, grupo in datos.sort_values(["Cluster", "Province_State"]).groupby(
-        "Cluster_Label"
+    for cluster, grupo in datos.sort_values(["Perfil_ID", "Province_State"]).groupby(
+        "Perfil_Label"
     ):
         estados = ", ".join(grupo["Province_State"].tolist())
         print(f"{cluster}: {estados}")
 
     crear_scatter_resiliencia(datos)
+    crear_boxplot_resiliencia(datos)
     crear_heatmap_perfiles(datos)
     crear_mapa_resiliencia(datos)
 
