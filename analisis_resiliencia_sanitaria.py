@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 from covid_utils import (
@@ -161,10 +162,15 @@ def nombrar_perfiles(datos: pd.DataFrame) -> dict[int, str]:
 def asignar_clusters(metricas: pd.DataFrame, n_clusters: int = 4) -> pd.DataFrame:
     scaler = StandardScaler()
     matriz = scaler.fit_transform(metricas[FEATURES_CLUSTER_BASE])
+    pca = PCA(n_components=2)
+    pca_2d = pca.fit_transform(matriz)
     modelo = KMeans(n_clusters=n_clusters, random_state=42, n_init=30)
 
     datos = metricas.copy()
-    datos["Cluster_Modelo"] = modelo.fit_predict(matriz)
+    datos["PCA_1"] = pca_2d[:, 0]
+    datos["PCA_2"] = pca_2d[:, 1]
+    datos["Cluster_Modelo"] = modelo.fit_predict(pca_2d)
+    datos.attrs["pca_explained_variance_ratio"] = pca.explained_variance_ratio_.tolist()
     etiquetas = nombrar_perfiles(datos)
     datos["Perfil_Nombre"] = datos["Cluster_Modelo"].map(etiquetas)
     datos["Perfil_ID"] = datos["Perfil_Nombre"].map(PROFILE_ORDER)
@@ -633,7 +639,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     <section class="map-shell">
       <div class="map-head">
         <h1>Mapa interactivo de clusters epidemiologicos</h1>
-        <p>Haz clic en un estado coloreado para abrir su radiografia: resumen, radar y semana explosiva.</p>
+        <p>Clusters calculados con PCA 2D + K-Means. Haz clic en un estado coloreado para abrir su radar y semana explosiva.</p>
       </div>
       <div id="map"></div>
       <div class="map-tools">
@@ -983,6 +989,13 @@ def main() -> None:
     print("\nVariables usadas para el clustering base:")
     for variable in FEATURES_CLUSTER_BASE:
         print(f"- {variable}")
+    varianza_pca = datos.attrs.get("pca_explained_variance_ratio", [])
+    if varianza_pca:
+        print("\nReduccion PCA 2D previa a K-Means:")
+        print(f"- PCA_1 explica {varianza_pca[0] * 100:.2f}% de la varianza")
+        print(f"- PCA_2 explica {varianza_pca[1] * 100:.2f}% de la varianza")
+        print(f"- PCA 2D total explica {sum(varianza_pca) * 100:.2f}% de la varianza")
+        print("- K-Means se entrena usando solamente PCA_1 y PCA_2")
 
     print("\nVariables usadas para evaluar la semana explosiva:")
     for variable in FEATURES_STRESS:
