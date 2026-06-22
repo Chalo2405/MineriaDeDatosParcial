@@ -225,6 +225,10 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
             "profile": registro["Perfil_Label"],
             "profileName": registro["Perfil_Nombre"],
             "color": PROFILE_COLORS[int(registro["Perfil_ID"])],
+            "pca": {
+                "x": float(registro["PCA_1"]),
+                "y": float(registro["PCA_2"]),
+            },
             "metrics": {
                 "Incident_Rate": float(registro["Incident_Rate"]),
                 "Testing_Rate": float(registro["Testing_Rate"]),
@@ -261,6 +265,10 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     payload = {
         "states": datos_estado,
         "clusters": resumen_cluster,
+        "pca": {
+            "explained": datos.attrs.get("pca_explained_variance_ratio", []),
+            "total": sum(datos.attrs.get("pca_explained_variance_ratio", [])),
+        },
         "ranges": rangos,
         "features": FEATURES_REPORTE,
         "featureLabels": {
@@ -356,6 +364,31 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       margin: 0;
       color: #dbeafe;
       font-size: 13.5px;
+    }
+
+    .head-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .pca-button,
+    .modal-close {
+      border: 1px solid rgba(255,255,255,0.28);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.13);
+      color: white;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 900;
+      padding: 8px 10px;
+    }
+
+    .pca-button:hover,
+    .modal-close:hover {
+      background: rgba(255,255,255,0.22);
     }
 
     #map {
@@ -612,6 +645,92 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       height: 285px;
     }
 
+    .pca-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      display: none;
+      place-items: center;
+      padding: 18px;
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(8px);
+    }
+
+    .pca-modal.open {
+      display: grid;
+    }
+
+    .pca-panel {
+      width: min(1080px, 96vw);
+      max-height: 92vh;
+      display: grid;
+      grid-template-rows: auto auto minmax(420px, 1fr);
+      overflow: hidden;
+      border: 1px solid rgba(203, 213, 225, 0.9);
+      border-radius: 12px;
+      background: white;
+      box-shadow: 0 28px 80px rgba(15, 23, 42, 0.42);
+    }
+
+    .pca-panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 18px;
+      color: white;
+      background: linear-gradient(135deg, #111827, #1d4ed8 62%, #0f766e);
+    }
+
+    .pca-panel-head h2 {
+      margin: 0 0 4px;
+      font-size: 24px;
+      line-height: 1.05;
+    }
+
+    .pca-panel-head p {
+      margin: 0;
+      color: #dbeafe;
+      font-size: 13px;
+    }
+
+    .pca-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #f8fafc;
+    }
+
+    .pca-summary-card {
+      padding: 10px 12px;
+      border: 1px solid #dbe4ef;
+      border-radius: 8px;
+      background: white;
+    }
+
+    .pca-summary-card strong {
+      display: block;
+      color: #0f172a;
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .pca-summary-card span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    #pcaChart {
+      width: 100%;
+      height: 100%;
+      min-height: 420px;
+    }
+
     .leaflet-interactive {
       transition: fill-opacity 140ms ease, stroke-width 140ms ease;
     }
@@ -640,6 +759,9 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       <div class="map-head">
         <h1>Mapa interactivo de clusters epidemiologicos</h1>
         <p>Clusters calculados con PCA 2D + K-Means. Haz clic en un estado coloreado para abrir su radar y semana explosiva.</p>
+        <div class="head-actions">
+          <button class="pca-button" id="openPcaModal">Ver PCA 2D</button>
+        </div>
       </div>
       <div id="map"></div>
       <div class="map-tools">
@@ -684,6 +806,20 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     </aside>
   </main>
 
+  <section class="pca-modal" id="pcaModal" aria-hidden="true">
+    <div class="pca-panel" role="dialog" aria-modal="true" aria-labelledby="pcaTitle">
+      <header class="pca-panel-head">
+        <div>
+          <h2 id="pcaTitle">Plano PCA 2D usado por K-Means</h2>
+          <p>Cada punto es un estado. La cercania entre puntos indica perfiles epidemiologicos parecidos antes de asignar el cluster.</p>
+        </div>
+        <button class="modal-close" id="closePcaModal">Cerrar</button>
+      </header>
+      <div class="pca-summary" id="pcaSummary"></div>
+      <div id="pcaChart"></div>
+    </div>
+  </section>
+
   <script>
     const appData = __APP_DATA__;
     const states = appData.states;
@@ -705,6 +841,109 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       const range = appData.ranges[feature];
       if (!range || range.max === range.min) return 50;
       return ((value - range.min) / (range.max - range.min)) * 100;
+    }
+
+    function formatPercent(value) {
+      return `${(Number(value || 0) * 100).toFixed(2)}%`;
+    }
+
+    function renderPcaSummary() {
+      const explained = appData.pca.explained || [0, 0];
+      document.getElementById("pcaSummary").innerHTML = `
+        <div class="pca-summary-card"><strong>${formatPercent(explained[0])}</strong><span>Informacion explicada por PCA_1</span></div>
+        <div class="pca-summary-card"><strong>${formatPercent(explained[1])}</strong><span>Informacion explicada por PCA_2</span></div>
+        <div class="pca-summary-card"><strong>${formatPercent(appData.pca.total)}</strong><span>Informacion conservada en 2D</span></div>
+      `;
+    }
+
+    function renderPcaChart() {
+      const profiles = [...new Map(
+        stateNames
+          .map(name => states[name])
+          .sort((a, b) => a.profileId - b.profileId)
+          .map(state => [state.profile, state])
+      ).values()];
+      const traces = profiles.map(profileState => {
+        const group = stateNames.map(name => states[name]).filter(state => state.profile === profileState.profile);
+        return {
+          type: "scatter",
+          mode: "markers",
+          name: profileState.profile,
+          x: group.map(state => state.pca.x),
+          y: group.map(state => state.pca.y),
+          text: group.map(state => state.state),
+          customdata: group.map(state => state.state),
+          marker: {
+            color: profileState.color,
+            size: group.map(state => Math.max(9, Math.min(22, normalized("Incident_Rate", state.metrics.Incident_Rate) / 5 + 8))),
+            opacity: 0.86,
+            line: { color: "white", width: 1.4 }
+          },
+          hovertemplate:
+            "<b>%{text}</b><br>" +
+            "PCA_1: %{x:.2f}<br>" +
+            "PCA_2: %{y:.2f}<br>" +
+            "Cluster: " + profileState.profileName +
+            "<extra></extra>"
+        };
+      });
+      const state = states[selectedState];
+      traces.push({
+        type: "scatter",
+        mode: "markers+text",
+        name: "Estado seleccionado",
+        x: [state.pca.x],
+        y: [state.pca.y],
+        text: [state.state],
+        textposition: "top center",
+        marker: {
+          color: state.color,
+          size: 25,
+          symbol: "diamond",
+          line: { color: "#111827", width: 3 }
+        },
+        hovertemplate: "<b>%{text}</b><br>Estado seleccionado<extra></extra>"
+      });
+
+      const explained = appData.pca.explained || [0, 0];
+      Plotly.react("pcaChart", traces, {
+        margin: { l: 62, r: 28, t: 26, b: 62 },
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "#f8fafc",
+        xaxis: {
+          title: `PCA_1 (${formatPercent(explained[0])})`,
+          zeroline: true,
+          zerolinecolor: "#94a3b8",
+          gridcolor: "#e2e8f0"
+        },
+        yaxis: {
+          title: `PCA_2 (${formatPercent(explained[1])})`,
+          zeroline: true,
+          zerolinecolor: "#94a3b8",
+          gridcolor: "#e2e8f0"
+        },
+        legend: { orientation: "h", y: -0.22 },
+        annotations: [{
+          xref: "paper",
+          yref: "paper",
+          x: 0,
+          y: 1.08,
+          showarrow: false,
+          align: "left",
+          text: `K-Means agrupa usando solo estas dos coordenadas. Total conservado: <b>${formatPercent(appData.pca.total)}</b>`,
+          font: { color: "#334155", size: 13 }
+        }]
+      }, { responsive: true, displayModeBar: false });
+
+      const chart = document.getElementById("pcaChart");
+      if (!chart.dataset.clickReady) {
+        chart.on("plotly_click", event => {
+          const point = event.points && event.points[0];
+          const name = point && (point.customdata || point.text);
+          if (name && states[name]) selectState(name);
+        });
+        chart.dataset.clickReady = "true";
+      }
     }
 
     const map = L.map("map", {
@@ -783,6 +1022,34 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
 
     document.getElementById("stateSearch").addEventListener("input", event => {
       renderStateButtons(event.target.value);
+    });
+
+    const pcaModal = document.getElementById("pcaModal");
+    document.getElementById("openPcaModal").addEventListener("click", () => {
+      pcaModal.classList.add("open");
+      pcaModal.setAttribute("aria-hidden", "false");
+      renderPcaSummary();
+      renderPcaChart();
+      setTimeout(() => Plotly.Plots.resize("pcaChart"), 80);
+    });
+
+    document.getElementById("closePcaModal").addEventListener("click", () => {
+      pcaModal.classList.remove("open");
+      pcaModal.setAttribute("aria-hidden", "true");
+    });
+
+    pcaModal.addEventListener("click", event => {
+      if (event.target === pcaModal) {
+        pcaModal.classList.remove("open");
+        pcaModal.setAttribute("aria-hidden", "true");
+      }
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && pcaModal.classList.contains("open")) {
+        pcaModal.classList.remove("open");
+        pcaModal.setAttribute("aria-hidden", "true");
+      }
     });
 
     document.querySelectorAll(".legend-row").forEach(button => {
@@ -956,6 +1223,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       renderTimeline(state);
       highlightMapState(name);
       applyClusterFilter();
+      if (pcaModal.classList.contains("open")) renderPcaChart();
     }
 
     renderStateButtons();
@@ -965,6 +1233,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       map.fitBounds(geoLayer.getBounds(), { padding: [28, 28], maxZoom: 5 });
       Plotly.Plots.resize("radarChart");
       Plotly.Plots.resize("timelineChart");
+      if (pcaModal.classList.contains("open")) Plotly.Plots.resize("pcaChart");
     });
   </script>
 </body>
