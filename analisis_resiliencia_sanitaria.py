@@ -169,8 +169,9 @@ def asignar_clusters(metricas: pd.DataFrame, n_clusters: int = 4) -> pd.DataFram
     datos = metricas.copy()
     datos["PCA_1"] = pca_2d[:, 0]
     datos["PCA_2"] = pca_2d[:, 1]
-    datos["Cluster_Modelo"] = modelo.fit_predict(pca_2d)
+    datos["Cluster_Modelo"] = modelo.fit_predict(matriz)
     datos.attrs["pca_explained_variance_ratio"] = pca.explained_variance_ratio_.tolist()
+    datos.attrs["kmeans_data_used_ratio"] = 1.0
     etiquetas = nombrar_perfiles(datos)
     datos["Perfil_Nombre"] = datos["Cluster_Modelo"].map(etiquetas)
     datos["Perfil_ID"] = datos["Perfil_Nombre"].map(PROFILE_ORDER)
@@ -268,6 +269,10 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
         "pca": {
             "explained": datos.attrs.get("pca_explained_variance_ratio", []),
             "total": sum(datos.attrs.get("pca_explained_variance_ratio", [])),
+        },
+        "clustering": {
+            "dataUsed": datos.attrs.get("kmeans_data_used_ratio", 1.0),
+            "method": "K-Means sobre el vector estandarizado completo",
         },
         "ranges": rangos,
         "features": FEATURES_REPORTE,
@@ -696,7 +701,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
 
     .pca-summary {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
       padding: 12px 14px;
       border-bottom: 1px solid var(--line);
@@ -750,6 +755,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
         width: auto;
       }
       .detail-shell { min-height: 780px; }
+      .pca-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
   </style>
 </head>
@@ -758,7 +764,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     <section class="map-shell">
       <div class="map-head">
         <h1>Mapa interactivo de clusters epidemiologicos</h1>
-        <p>Clusters calculados con PCA 2D + K-Means. Haz clic en un estado coloreado para abrir su radar y semana explosiva.</p>
+        <p>K-Means usa el vector completo estandarizado; PCA 2D proyecta los estados para visualizar los clusters.</p>
         <div class="head-actions">
           <button class="pca-button" id="openPcaModal">Ver PCA 2D</button>
         </div>
@@ -810,8 +816,8 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     <div class="pca-panel" role="dialog" aria-modal="true" aria-labelledby="pcaTitle">
       <header class="pca-panel-head">
         <div>
-          <h2 id="pcaTitle">Plano PCA 2D usado por K-Means</h2>
-          <p>Cada punto es un estado. La cercania entre puntos indica perfiles epidemiologicos parecidos antes de asignar el cluster.</p>
+          <h2 id="pcaTitle">Plano PCA 2D para visualizar los clusters</h2>
+          <p>Cada punto es un estado proyectado en 2D. Los colores vienen de K-Means aplicado al vector completo estandarizado.</p>
         </div>
         <button class="modal-close" id="closePcaModal">Cerrar</button>
       </header>
@@ -852,7 +858,8 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       document.getElementById("pcaSummary").innerHTML = `
         <div class="pca-summary-card"><strong>${formatPercent(explained[0])}</strong><span>Informacion explicada por PCA_1</span></div>
         <div class="pca-summary-card"><strong>${formatPercent(explained[1])}</strong><span>Informacion explicada por PCA_2</span></div>
-        <div class="pca-summary-card"><strong>${formatPercent(appData.pca.total)}</strong><span>Informacion conservada en 2D</span></div>
+        <div class="pca-summary-card"><strong>${formatPercent(appData.pca.total)}</strong><span>Informacion visible en PCA 2D</span></div>
+        <div class="pca-summary-card"><strong>${formatPercent(appData.clustering.dataUsed)}</strong><span>Informacion usada por K-Means</span></div>
       `;
     }
 
@@ -930,7 +937,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
           y: 1.08,
           showarrow: false,
           align: "left",
-          text: `K-Means agrupa usando solo estas dos coordenadas. Total conservado: <b>${formatPercent(appData.pca.total)}</b>`,
+          text: `PCA 2D muestra <b>${formatPercent(appData.pca.total)}</b> de la variacion; K-Means agrupa con el vector completo estandarizado (<b>${formatPercent(appData.clustering.dataUsed)}</b>).`,
           font: { color: "#334155", size: 13 }
         }]
       }, { responsive: true, displayModeBar: false });
@@ -1260,11 +1267,16 @@ def main() -> None:
         print(f"- {variable}")
     varianza_pca = datos.attrs.get("pca_explained_variance_ratio", [])
     if varianza_pca:
-        print("\nReduccion PCA 2D previa a K-Means:")
+        print("\nFlujo PCA 2D para visualizacion:")
         print(f"- PCA_1 explica {varianza_pca[0] * 100:.2f}% de la varianza")
         print(f"- PCA_2 explica {varianza_pca[1] * 100:.2f}% de la varianza")
-        print(f"- PCA 2D total explica {sum(varianza_pca) * 100:.2f}% de la varianza")
-        print("- K-Means se entrena usando solamente PCA_1 y PCA_2")
+        print(f"- PCA 2D permite visualizar {sum(varianza_pca) * 100:.2f}% de la varianza")
+        print("- PCA_1 y PCA_2 se usan para proyectar los estados en el grafico 2D")
+
+    print("\nFlujo K-Means para clustering:")
+    print("- K-Means se entrena con el vector completo estandarizado")
+    print("- Variables usadas por K-Means: Incident_Rate, Testing_Rate y Case_Fatality_Ratio")
+    print("- Informacion usada por K-Means: 100.00% del vector de caracteristicas")
 
     print("\nVariables usadas para evaluar la semana explosiva:")
     for variable in FEATURES_STRESS:
