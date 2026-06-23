@@ -375,7 +375,7 @@
     }
 
     .pca-panel {
-      width: min(1320px, 96vw);
+      width: min(1180px, 96vw);
       max-height: 92vh;
       display: grid;
       grid-template-rows: auto auto minmax(460px, 1fr);
@@ -443,9 +443,9 @@
       min-height: 0;
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 12px;
-      padding: 12px;
-      background: #eef4fb;
+      gap: 14px;
+      padding: 14px;
+      background: linear-gradient(180deg, #f8fafc, #eef4fb);
     }
 
     .comparison-card {
@@ -457,14 +457,26 @@
       border: 1px solid var(--line);
       border-radius: 10px;
       background: white;
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
     }
 
-    .comparison-card h3 {
+    .chart-head {
       margin: 0;
-      padding: 10px 12px;
+      padding: 12px 14px 10px;
       border-bottom: 1px solid var(--line);
       background: #fbfdff;
+    }
+
+    .chart-head h3 {
+      margin: 0 0 4px;
       font-size: 14px;
+    }
+
+    .chart-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
     }
 
     #pcaChart,
@@ -555,19 +567,25 @@
     <div class="pca-panel" role="dialog" aria-modal="true" aria-labelledby="pcaTitle">
       <header class="pca-panel-head">
         <div>
-          <h2 id="pcaTitle">Comparacion: K-Means completo vs PCA 2D</h2>
-          <p>La izquierda muestra el clustering en las 3 variables estandarizadas. La derecha muestra la misma estructura proyectada a dos dimensiones.</p>
+          <h2 id="pcaTitle">Comparacion visual: K-Means vs PCA 2D</h2>
+          <p>La izquierda muestra una lectura directa de las variables originales. La derecha muestra la proyeccion PCA que resume esa estructura en dos ejes.</p>
         </div>
         <button class="modal-close" id="closePcaModal">Cerrar</button>
       </header>
       <div class="pca-summary" id="pcaSummary"></div>
       <div class="comparison-grid">
         <section class="comparison-card">
-          <h3>K-Means sin PCA: espacio completo estandarizado</h3>
+          <div class="chart-head">
+            <h3>K-Means sin PCA: lectura directa del vector</h3>
+            <p>X = incidencia estandarizada, Y = letalidad estandarizada y tamano = testing. Los colores son los clusters calculados con las 3 variables.</p>
+          </div>
           <div id="kmeansChart"></div>
         </section>
         <section class="comparison-card">
-          <h3>PCA 2D: proyeccion visual de los mismos clusters</h3>
+          <div class="chart-head">
+            <h3>PCA 2D: proyeccion de los mismos clusters</h3>
+            <p>PCA_1 y PCA_2 resumen las 3 variables en un plano que conserva la mayor parte de la variacion del dataset.</p>
+          </div>
           <div id="pcaChart"></div>
         </section>
       </div>
@@ -624,66 +642,76 @@
       const traces = getProfileGroups().map(profileState => {
         const group = stateNames.map(name => states[name]).filter(state => state.profile === profileState.profile);
         return {
-          type: "scatter3d",
+          type: "scatter",
           mode: "markers",
           name: profileState.profile,
           x: group.map(state => state.kmeansSpace.incident),
-          y: group.map(state => state.kmeansSpace.testing),
-          z: group.map(state => state.kmeansSpace.fatality),
+          y: group.map(state => state.kmeansSpace.fatality),
           text: group.map(state => state.state),
           customdata: group.map(state => state.state),
           marker: {
             color: profileState.color,
-            size: 6,
+            size: group.map(state => Math.max(9, Math.min(24, normalized("Testing_Rate", state.metrics.Testing_Rate) / 5 + 8))),
             opacity: 0.84,
-            line: { color: "white", width: 1 }
+            line: { color: "white", width: 1.3 }
           },
           hovertemplate:
             "<b>%{text}</b><br>" +
             "Incidencia z: %{x:.2f}<br>" +
-            "Testing z: %{y:.2f}<br>" +
-            "Letalidad z: %{z:.2f}<br>" +
-            "Cluster: " + profileState.profileName +
+            "Letalidad z: %{y:.2f}<br>" +
+            "Tamano de burbuja: testing<br>" +
+            "<br>Cluster: " + profileState.profileName +
             "<extra></extra>"
         };
       });
       const state = states[selectedState];
       traces.push({
-        type: "scatter3d",
+        type: "scatter",
         mode: "markers+text",
         name: "Estado seleccionado",
         x: [state.kmeansSpace.incident],
-        y: [state.kmeansSpace.testing],
-        z: [state.kmeansSpace.fatality],
+        y: [state.kmeansSpace.fatality],
         text: [state.state],
+        textposition: "top center",
         marker: {
           color: state.color,
-          size: 9,
+          size: 26,
           symbol: "diamond",
           line: { color: "#111827", width: 3 }
         },
-        hovertemplate: "<b>%{text}</b><br>Estado seleccionado<extra></extra>"
+        hovertemplate:
+            "<b>%{text}</b><br>" +
+            "Incidencia z: %{x:.2f}<br>" +
+            "Letalidad z: %{y:.2f}<br>" +
+            "Cluster: " + state.profileName +
+            "<extra></extra>"
       });
 
       Plotly.react("kmeansChart", traces, {
-        margin: { l: 0, r: 0, t: 22, b: 0 },
+        margin: { l: 58, r: 28, t: 26, b: 58 },
         paper_bgcolor: "rgba(0,0,0,0)",
-        scene: {
-          xaxis: { title: "Incidencia z", gridcolor: "#e2e8f0", zerolinecolor: "#94a3b8" },
-          yaxis: { title: "Testing z", gridcolor: "#e2e8f0", zerolinecolor: "#94a3b8" },
-          zaxis: { title: "Letalidad z", gridcolor: "#e2e8f0", zerolinecolor: "#94a3b8" },
-          camera: { eye: { x: 1.45, y: 1.35, z: 1.05 } },
-          bgcolor: "#f8fafc"
+        plot_bgcolor: "#f8fafc",
+        xaxis: {
+          title: "Incidencia estandarizada",
+          zeroline: true,
+          zerolinecolor: "#94a3b8",
+          gridcolor: "#e2e8f0"
         },
-        legend: { orientation: "h", y: -0.08 },
+        yaxis: {
+          title: "Letalidad estandarizada",
+          zeroline: true,
+          zerolinecolor: "#94a3b8",
+          gridcolor: "#e2e8f0"
+        },
+        legend: { orientation: "h", y: -0.24 },
         annotations: [{
           xref: "paper",
           yref: "paper",
           x: 0,
-          y: 1.06,
+          y: 1.08,
           showarrow: false,
           align: "left",
-          text: `K-Means agrupa aqui con <b>${formatPercent(appData.clustering.dataUsed)}</b> del vector de caracteristicas.`,
+          text: `K-Means usa <b>${formatPercent(appData.clustering.dataUsed)}</b> del vector; el tamano de burbuja representa testing.`,
           font: { color: "#334155", size: 12 }
         }]
       }, { responsive: true, displayModeBar: false });
