@@ -169,6 +169,8 @@ def asignar_clusters(metricas: pd.DataFrame, n_clusters: int = 4) -> pd.DataFram
     datos = metricas.copy()
     datos["PCA_1"] = pca_2d[:, 0]
     datos["PCA_2"] = pca_2d[:, 1]
+    for indice, variable in enumerate(FEATURES_CLUSTER_BASE):
+        datos[f"{variable}_z"] = matriz[:, indice]
     datos["Cluster_Modelo"] = modelo.fit_predict(matriz)
     datos.attrs["pca_explained_variance_ratio"] = pca.explained_variance_ratio_.tolist()
     datos.attrs["kmeans_data_used_ratio"] = 1.0
@@ -229,6 +231,11 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
             "pca": {
                 "x": float(registro["PCA_1"]),
                 "y": float(registro["PCA_2"]),
+            },
+            "kmeansSpace": {
+                "incident": float(registro["Incident_Rate_z"]),
+                "testing": float(registro["Testing_Rate_z"]),
+                "fatality": float(registro["Case_Fatality_Ratio_z"]),
             },
             "metrics": {
                 "Incident_Rate": float(registro["Incident_Rate"]),
@@ -666,10 +673,10 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     }
 
     .pca-panel {
-      width: min(1080px, 96vw);
+      width: min(1320px, 96vw);
       max-height: 92vh;
       display: grid;
-      grid-template-rows: auto auto minmax(420px, 1fr);
+      grid-template-rows: auto auto minmax(460px, 1fr);
       overflow: hidden;
       border: 1px solid rgba(203, 213, 225, 0.9);
       border-radius: 12px;
@@ -730,10 +737,39 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       font-weight: 900;
     }
 
-    #pcaChart {
+    .comparison-grid {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 12px;
+      padding: 12px;
+      background: #eef4fb;
+    }
+
+    .comparison-card {
+      min-width: 0;
+      min-height: 460px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: white;
+    }
+
+    .comparison-card h3 {
+      margin: 0;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfdff;
+      font-size: 14px;
+    }
+
+    #pcaChart,
+    #kmeansChart {
       width: 100%;
       height: 100%;
-      min-height: 420px;
+      min-height: 410px;
     }
 
     .leaflet-interactive {
@@ -756,6 +792,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       }
       .detail-shell { min-height: 780px; }
       .pca-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .comparison-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -766,7 +803,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
         <h1>Mapa interactivo de clusters epidemiologicos</h1>
         <p>K-Means usa el vector completo estandarizado; PCA 2D proyecta los estados para visualizar los clusters.</p>
         <div class="head-actions">
-          <button class="pca-button" id="openPcaModal">Ver PCA 2D</button>
+          <button class="pca-button" id="openPcaModal">Comparar K-Means y PCA</button>
         </div>
       </div>
       <div id="map"></div>
@@ -816,13 +853,22 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     <div class="pca-panel" role="dialog" aria-modal="true" aria-labelledby="pcaTitle">
       <header class="pca-panel-head">
         <div>
-          <h2 id="pcaTitle">Plano PCA 2D para visualizar los clusters</h2>
-          <p>Cada punto es un estado proyectado en 2D. Los colores vienen de K-Means aplicado al vector completo estandarizado.</p>
+          <h2 id="pcaTitle">Comparacion: K-Means completo vs PCA 2D</h2>
+          <p>La izquierda muestra el clustering en las 3 variables estandarizadas. La derecha muestra la misma estructura proyectada a dos dimensiones.</p>
         </div>
         <button class="modal-close" id="closePcaModal">Cerrar</button>
       </header>
       <div class="pca-summary" id="pcaSummary"></div>
-      <div id="pcaChart"></div>
+      <div class="comparison-grid">
+        <section class="comparison-card">
+          <h3>K-Means sin PCA: espacio completo estandarizado</h3>
+          <div id="kmeansChart"></div>
+        </section>
+        <section class="comparison-card">
+          <h3>PCA 2D: proyeccion visual de los mismos clusters</h3>
+          <div id="pcaChart"></div>
+        </section>
+      </div>
     </div>
   </section>
 
@@ -863,13 +909,96 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       `;
     }
 
-    function renderPcaChart() {
-      const profiles = [...new Map(
+    function getProfileGroups() {
+      return [...new Map(
         stateNames
           .map(name => states[name])
           .sort((a, b) => a.profileId - b.profileId)
           .map(state => [state.profile, state])
       ).values()];
+    }
+
+    function renderKmeansChart() {
+      const traces = getProfileGroups().map(profileState => {
+        const group = stateNames.map(name => states[name]).filter(state => state.profile === profileState.profile);
+        return {
+          type: "scatter3d",
+          mode: "markers",
+          name: profileState.profile,
+          x: group.map(state => state.kmeansSpace.incident),
+          y: group.map(state => state.kmeansSpace.testing),
+          z: group.map(state => state.kmeansSpace.fatality),
+          text: group.map(state => state.state),
+          customdata: group.map(state => state.state),
+          marker: {
+            color: profileState.color,
+            size: 6,
+            opacity: 0.84,
+            line: { color: "white", width: 1 }
+          },
+          hovertemplate:
+            "<b>%{text}</b><br>" +
+            "Incidencia z: %{x:.2f}<br>" +
+            "Testing z: %{y:.2f}<br>" +
+            "Letalidad z: %{z:.2f}<br>" +
+            "Cluster: " + profileState.profileName +
+            "<extra></extra>"
+        };
+      });
+      const state = states[selectedState];
+      traces.push({
+        type: "scatter3d",
+        mode: "markers+text",
+        name: "Estado seleccionado",
+        x: [state.kmeansSpace.incident],
+        y: [state.kmeansSpace.testing],
+        z: [state.kmeansSpace.fatality],
+        text: [state.state],
+        marker: {
+          color: state.color,
+          size: 9,
+          symbol: "diamond",
+          line: { color: "#111827", width: 3 }
+        },
+        hovertemplate: "<b>%{text}</b><br>Estado seleccionado<extra></extra>"
+      });
+
+      Plotly.react("kmeansChart", traces, {
+        margin: { l: 0, r: 0, t: 22, b: 0 },
+        paper_bgcolor: "rgba(0,0,0,0)",
+        scene: {
+          xaxis: { title: "Incidencia z", gridcolor: "#e2e8f0", zerolinecolor: "#94a3b8" },
+          yaxis: { title: "Testing z", gridcolor: "#e2e8f0", zerolinecolor: "#94a3b8" },
+          zaxis: { title: "Letalidad z", gridcolor: "#e2e8f0", zerolinecolor: "#94a3b8" },
+          camera: { eye: { x: 1.45, y: 1.35, z: 1.05 } },
+          bgcolor: "#f8fafc"
+        },
+        legend: { orientation: "h", y: -0.08 },
+        annotations: [{
+          xref: "paper",
+          yref: "paper",
+          x: 0,
+          y: 1.06,
+          showarrow: false,
+          align: "left",
+          text: `K-Means agrupa aqui con <b>${formatPercent(appData.clustering.dataUsed)}</b> del vector de caracteristicas.`,
+          font: { color: "#334155", size: 12 }
+        }]
+      }, { responsive: true, displayModeBar: false });
+
+      const chart = document.getElementById("kmeansChart");
+      if (!chart.dataset.clickReady) {
+        chart.on("plotly_click", event => {
+          const point = event.points && event.points[0];
+          const name = point && (point.customdata || point.text);
+          if (name && states[name]) selectState(name);
+        });
+        chart.dataset.clickReady = "true";
+      }
+    }
+
+    function renderPcaChart() {
+      const profiles = getProfileGroups();
       const traces = profiles.map(profileState => {
         const group = stateNames.map(name => states[name]).filter(state => state.profile === profileState.profile);
         return {
@@ -937,7 +1066,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
           y: 1.08,
           showarrow: false,
           align: "left",
-          text: `PCA 2D muestra <b>${formatPercent(appData.pca.total)}</b> de la variacion; K-Means agrupa con el vector completo estandarizado (<b>${formatPercent(appData.clustering.dataUsed)}</b>).`,
+          text: `PCA 2D muestra <b>${formatPercent(appData.pca.total)}</b> de la variacion y conserva la lectura visual de los clusters.`,
           font: { color: "#334155", size: 13 }
         }]
       }, { responsive: true, displayModeBar: false });
@@ -1036,8 +1165,12 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       pcaModal.classList.add("open");
       pcaModal.setAttribute("aria-hidden", "false");
       renderPcaSummary();
+      renderKmeansChart();
       renderPcaChart();
-      setTimeout(() => Plotly.Plots.resize("pcaChart"), 80);
+      setTimeout(() => {
+        Plotly.Plots.resize("kmeansChart");
+        Plotly.Plots.resize("pcaChart");
+      }, 80);
     });
 
     document.getElementById("closePcaModal").addEventListener("click", () => {
@@ -1230,7 +1363,10 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       renderTimeline(state);
       highlightMapState(name);
       applyClusterFilter();
-      if (pcaModal.classList.contains("open")) renderPcaChart();
+      if (pcaModal.classList.contains("open")) {
+        renderKmeansChart();
+        renderPcaChart();
+      }
     }
 
     renderStateButtons();
@@ -1240,7 +1376,10 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       map.fitBounds(geoLayer.getBounds(), { padding: [28, 28], maxZoom: 5 });
       Plotly.Plots.resize("radarChart");
       Plotly.Plots.resize("timelineChart");
-      if (pcaModal.classList.contains("open")) Plotly.Plots.resize("pcaChart");
+      if (pcaModal.classList.contains("open")) {
+        Plotly.Plots.resize("kmeansChart");
+        Plotly.Plots.resize("pcaChart");
+      }
     });
   </script>
 </body>
