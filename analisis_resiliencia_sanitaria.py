@@ -673,11 +673,11 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     }
 
     .pca-panel {
-      width: min(1180px, 96vw);
-      max-height: 92vh;
+      width: min(1280px, 96vw);
+      max-height: 94vh;
       display: grid;
-      grid-template-rows: auto auto minmax(460px, 1fr);
-      overflow: hidden;
+      grid-template-rows: auto auto auto;
+      overflow: auto;
       border: 1px solid rgba(203, 213, 225, 0.9);
       border-radius: 12px;
       background: white;
@@ -740,7 +740,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     .comparison-grid {
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
       gap: 14px;
       padding: 14px;
       background: linear-gradient(180deg, #f8fafc, #eef4fb);
@@ -748,7 +748,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
 
     .comparison-card {
       min-width: 0;
-      min-height: 460px;
+      min-height: 520px;
       display: grid;
       grid-template-rows: auto 1fr;
       overflow: hidden;
@@ -781,7 +781,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     #kmeansChart {
       width: 100%;
       height: 100%;
-      min-height: 410px;
+      min-height: 440px;
     }
 
     .leaflet-interactive {
@@ -1039,7 +1039,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
           customdata: group.map(state => state.state),
           marker: {
             color: profileState.color,
-            size: group.map(state => Math.max(9, Math.min(22, normalized("Incident_Rate", state.metrics.Incident_Rate) / 5 + 8))),
+            size: 13,
             opacity: 0.86,
             line: { color: "white", width: 1.4 }
           },
@@ -1401,7 +1401,6 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
     selectState(selectedState);
     window.addEventListener("resize", () => {
       map.invalidateSize();
-      map.fitBounds(geoLayer.getBounds(), { padding: [28, 28], maxZoom: 5 });
       Plotly.Plots.resize("radarChart");
       Plotly.Plots.resize("timelineChart");
       if (pcaModal.classList.contains("open")) {
