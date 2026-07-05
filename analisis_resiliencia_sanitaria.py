@@ -1151,11 +1151,9 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
         }
       }
     }).addTo(map);
-    setTimeout(() => {
-      map.invalidateSize();
-      map.fitBounds(geoLayer.getBounds(), { padding: [28, 28], maxZoom: 5 });
-      map.setMaxBounds(geoLayer.getBounds().pad(0.55));
-    }, 250);
+    map.fitBounds(geoLayer.getBounds(), { padding: [28, 28], maxZoom: 5 });
+    map.setMaxBounds(geoLayer.getBounds().pad(0.55));
+    setTimeout(() => map.invalidateSize(), 250);
 
     function renderStateButtons(filter = "") {
       const container = document.getElementById("stateButtons");
@@ -1373,7 +1371,6 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
       if (selectedLayer) {
         selectedLayer.setStyle({ weight: 3.4, color: "#111827", fillOpacity: 0.98 });
         selectedLayer.bringToFront();
-        map.panTo(selectedLayer.getBounds().getCenter(), { animate: true, duration: 0.4 });
       }
     }
 
