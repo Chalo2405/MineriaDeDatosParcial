@@ -302,7 +302,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Resiliencia_Sanitaria_COVID19</title>
+  <title>Dashboard Interactivo de Resiliencia Sanitaria</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
@@ -812,7 +812,7 @@ def crear_dashboard_interactivo(datos: pd.DataFrame) -> None:
   <main class="app">
     <section class="map-shell">
       <div class="map-head">
-        <h1>Resiliencia_Sanitaria_COVID19</h1>
+        <h1>Mapa interactivo de clusters epidemiologicos</h1>
         <p>K-Means usa el vector completo estandarizado; PCA 2D proyecta los estados para visualizar los clusters.</p>
         <div class="head-actions">
           <button class="pca-button" id="openPcaModal">Comparar K-Means y PCA</button>
